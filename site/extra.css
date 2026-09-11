@@ -1,0 +1,150 @@
+/* Landscape·Art — v5 additions: batch grid, stats, prompt library, search/favourites.
+   Kept in its own file so the core stylesheet stays stable. */
+
+/* ---------------------------------------------------------------- batch grid */
+.stage-grid {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+}
+.stage-grid.n2 { grid-template-columns: 1fr 1fr; }
+.stage-grid.n3, .stage-grid.n4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.stage-grid img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  cursor: zoom-in;
+  background: var(--panel2, #1b2230);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.stage-grid img:hover { transform: scale(1.015); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+
+/* --------------------------------------------------------------- stat cards */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+.stat-card {
+  background: var(--panel2, #1b2230);
+  border: 1px solid var(--line, #232c3a);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.stat-card b { display: block; font-size: 19px; letter-spacing: .01em; }
+.stat-card small { color: var(--muted, #93a0b4); font-size: 11.5px; }
+.stat-bar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .08); overflow: hidden; margin-top: 8px; }
+.stat-bar i { display: block; height: 100%; background: linear-gradient(90deg, #6ea8ff, #c084fc); }
+
+/* ----------------------------------------------------------- prompt library */
+.lib-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow: auto; }
+.lib-item {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel2, #1b2230);
+  border: 1px solid var(--line, #232c3a);
+  border-radius: 10px; padding: 7px 9px; font-size: 12.5px;
+}
+.lib-item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted, #93a0b4); }
+.lib-item button { flex: 0 0 auto; }
+.lib-empty { color: var(--muted, #93a0b4); font-size: 12.5px; }
+
+/* ------------------------------------------------------- search / favourites */
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+.toolbar input[type="search"], .toolbar input[type="text"] { flex: 1 1 160px; min-width: 120px; }
+.toolbar select { flex: 0 0 auto; }
+.star {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  background: rgba(0, 0, 0, .55); border: none; border-radius: 8px;
+  padding: 2px 6px; font-size: 12px; cursor: pointer; color: #ffd479; opacity: .55;
+}
+.star.on { opacity: 1; }
+.count-badge {
+  position: absolute; right: 6px; bottom: 6px; z-index: 2;
+  background: rgba(0, 0, 0, .6); color: #fff; border-radius: 999px;
+  padding: 1px 7px; font-size: 11px;
+}
+@media (max-width: 720px) {
+  .stage-grid.n3, .stage-grid.n4 { grid-template-columns: 1fr 1fr; }
+}
+
+/* ============================================================ lightbox zoom */
+/* The lightbox becomes a zoomable viewport: wheel zooms around the pointer,
+   dragging pans, double click toggles fit/zoom.  100% = fit, 1:1 = real pixels. */
+
+.lightbox {
+  flex-direction: column;
+  padding: 14px 18px 18px;
+  gap: 8px;
+}
+
+.lb-stage {
+  position: relative;
+  flex: 1 1 auto;
+  width: min(96vw, 1800px);
+  max-height: calc(100vh - 118px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 14px;
+  cursor: grab;
+  touch-action: none;            /* we own pinch/drag gestures */
+  user-select: none;
+}
+.lb-stage.dragging { cursor: grabbing; }
+.lb-stage img {
+  max-width: 100%;
+  max-height: calc(100vh - 140px);
+  border-radius: 13px;
+  box-shadow: 0 20px 90px #000;
+  transform-origin: center center;
+  will-change: transform;
+  transition: transform .09s ease-out;
+}
+.lb-stage img.zooming { transition: none; }
+.lb-stage img:active { cursor: grabbing; }
+
+/* live zoom readout, only meaningful once zoomed in */
+.lb-zoom-badge {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 2;
+  background: #000000a6;
+  color: #9fb2cc;
+  border: 1px solid #ffffff22;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  opacity: .55;
+  transition: opacity .15s, color .15s;
+}
+.lb-zoom-badge.active { opacity: 1; color: #cfe0f5; }
+
+.lb-zoom { display: flex; align-items: center; gap: 6px; }
+.lb-hint {
+  margin: 0;
+  color: #8c9bb2;
+  font-size: 12px;
+  text-align: center;
+}
+.lb-hint kbd {
+  background: #ffffff14;
+  border: 1px solid #ffffff2b;
+  border-radius: 5px;
+  padding: 0 5px;
+  font-size: 11px;
+}
+
+@media (max-width: 720px) {
+  .lb-hint { font-size: 11px; }
+  .lb-stage { max-height: calc(100vh - 150px); }
+  .lb-foot { flex-wrap: wrap; justify-content: center; }
+}
+

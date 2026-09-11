@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Pelican">
+  <title>Pelican — Landscape·Art</title>
+  <desc>Pelican mascot badge used as the website icon.</desc>
+  <defs>
+    <linearGradient id="pl-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6ea8ff"/>
+      <stop offset="1" stop-color="#c084fc"/>
+    </linearGradient>
+    <clipPath id="pl-clip"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#pl-clip)">
+    <rect width="64" height="64" fill="url(#pl-bg)"/>
+
+    <!-- neck -->
+    <path d="M24.5 40 C23.2 27.5 30 17.6 39.6 16.4" fill="none" stroke="#ffffff"
+          stroke-width="7.6" stroke-linecap="round"/>
+
+    <!-- tail -->
+    <path d="M16 41 L7 36 L11 41.5 L12.5 47.5 Z" fill="#cedef3"/>
+
+    <!-- body -->
+    <ellipse cx="28.5" cy="43.4" rx="14.2" ry="10" fill="#cedef3"/>
+    <ellipse cx="28.5" cy="42.9" rx="13.9" ry="9.5" fill="#ffffff"/>
+
+    <!-- wing -->
+    <path d="M17.6 40.6 C25 35.4 33.5 37.6 39 42.4 C31.5 41.6 23.5 41.4 17.6 40.6 Z" fill="#baccea"/>
+    <path d="M20.5 40.4 L28.5 38.4 L36.5 41.4" fill="none" stroke="#d0e0f5"
+          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- legs -->
+    <g stroke="#f59e0b" stroke-width="3.1" stroke-linecap="round">
+      <path d="M25 51.5 L23.8 58.4"/>
+      <path d="M33.4 51.5 L34.6 58.4"/>
+    </g>
+
+    <!-- head -->
+    <circle cx="40.3" cy="16.2" r="5.7" fill="#ffffff"/>
+
+    <!-- beak + pouch -->
+    <path d="M44.6 13.3 L62 18.7 C55.6 27.4 47.2 25.8 44.2 19.4 Z" fill="#fbbf24"/>
+    <path d="M44.6 13.3 L62 18.7" fill="none" stroke="#f59e0b" stroke-width="1.7" stroke-linecap="round"/>
+
+    <!-- eye -->
+    <circle cx="41.7" cy="14.8" r="1.55" fill="#0b0e14"/>
+  </g>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.4" fill="none"
+        stroke="#0b0e14" stroke-opacity=".22" stroke-width="1.5"/>
+</svg>

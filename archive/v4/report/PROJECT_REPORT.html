@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LANDSCAPE·ART — 风景生图模型 ｜ V1→V4 项目说明（交互版）</title>
+<style>
+  :root{--bg:#0b0e14;--bg2:#10141d;--panel:#151a24;--panel2:#1b2230;--line:#232c3a;--text:#e8edf5;--muted:#93a0b4;--dim:#5c6a80;--accent:#6ea8ff;--accent2:#c084fc;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--rad:18px;--shadow:0 18px 50px rgba(0,0,0,.45)}
+  *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:74px}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}img{display:block;max-width:100%}
+  ::selection{background:rgba(110,168,255,.35)}::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#2a3547;border-radius:10px}::-webkit-scrollbar-track{background:#0b0e14}
+
+  /* nav */
+  .nav{position:sticky;top:0;z-index:200;display:flex;gap:4px;align-items:center;padding:12px 22px;background:rgba(11,14,20,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap}
+  .nav .brand{font-weight:800;letter-spacing:.04em;margin-right:14px;background:linear-gradient(120deg,#fff,#9cc0ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .nav a{color:var(--muted);font-size:14px;padding:6px 12px;border-radius:99px;transition:.2s}
+  .nav a:hover,.nav a.on{color:#fff;background:rgba(110,168,255,.15)}
+
+  /* hero */
+  .hero{position:relative;overflow:hidden;padding:84px 24px 64px;text-align:center;background:radial-gradient(1000px 500px at 20% -10%,rgba(110,168,255,.28),transparent 60%),radial-gradient(800px 420px at 90% 0%,rgba(192,132,252,.22),transparent 60%),linear-gradient(180deg,#0c1020,#0b0e14)}
+  .hero .tag{display:inline-block;letter-spacing:.25em;font-size:12px;color:var(--accent);border:1px solid rgba(110,168,255,.35);padding:7px 16px;border-radius:999px;margin-bottom:20px;text-transform:uppercase}
+  .hero h1{font-size:clamp(34px,6vw,60px);margin:0;font-weight:800;line-height:1.05;background:linear-gradient(120deg,#eaf2ff,#9cc0ff 55%,#d5c2ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .hero p.sub{max-width:720px;margin:16px auto 0;color:var(--muted);font-size:18px}
+  .hero .chips{margin-top:26px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .hero .chips span{background:rgba(255,255,255,.05);border:1px solid var(--line);padding:8px 16px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .coverimg{width:100%;display:block;max-height:560px;object-fit:cover;border-bottom:1px solid var(--line);background:var(--bg)}
+
+  .wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+  section{padding:58px 0}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:12px}
+  .kicker::before{content:"";width:26px;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px}
+  h2{font-size:clamp(24px,3.4vw,32px);margin:0 0 8px;font-weight:800;letter-spacing:-.01em}
+  .lead{color:var(--muted);max-width:780px;margin:0 0 28px}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+  .stat{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--rad);padding:22px 20px;text-align:center}
+  .stat .n{font-size:34px;font-weight:800;background:linear-gradient(120deg,#fff,#bcd4ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .stat .l{font-size:13px;color:var(--dim);margin-top:6px}
+
+  .timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+  .tl{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);padding:20px}
+  .tl .step{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.1em;padding:4px 10px;border-radius:999px;margin-bottom:10px}
+  .tl h4{margin:0 0 6px;font-size:17px}.tl p{margin:0;color:var(--muted);font-size:13.5px}
+  .s1{background:rgba(110,168,255,.16);color:#9cc0ff}.s2{background:rgba(192,132,252,.16);color:#d5bafc}.s3{background:rgba(74,222,128,.16);color:#8ef0ad}.s4{background:rgba(251,191,36,.16);color:#fcd07d}
+
+  .imgs{display:grid;gap:14px}
+  .g3{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+  .shot{position:relative;border-radius:var(--rad);overflow:hidden;border:1px solid var(--line);background:var(--panel);aspect-ratio:1/1;cursor:zoom-in}
+  .shot img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
+  .shot:hover img{transform:scale(1.05)}
+  .shot .cap{position:absolute;left:0;right:0;bottom:0;padding:26px 14px 12px;font-size:13px;background:linear-gradient(transparent,rgba(0,0,0,.78));color:#fff;opacity:0;transition:.3s}
+  .shot:hover .cap{opacity:1}.shot .cap b{display:block;font-size:13px}.shot .cap span{color:#c8d4e6}
+
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .fbtn{background:var(--panel);border:1px solid var(--line);color:var(--muted);padding:8px 18px;border-radius:999px;cursor:pointer;font-size:14px;transition:.2s}
+  .fbtn:hover{border-color:var(--accent);color:#fff}
+  .fbtn.on{background:linear-gradient(120deg,rgba(110,168,255,.25),rgba(192,132,252,.2));color:#fff;border-color:transparent}
+
+  .curve{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);padding:18px;box-shadow:var(--shadow)}.curve img{border-radius:10px;cursor:zoom-in}
+  .note{background:linear-gradient(160deg,rgba(74,222,128,.10),rgba(251,191,36,.07));border:1px solid rgba(74,222,128,.28);border-left:4px solid var(--ok);border-radius:14px;padding:16px 18px;margin-top:18px;font-size:14.5px;color:#d6f5df}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);overflow:hidden}
+  th,td{padding:13px 14px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:var(--panel2);color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+  td{color:#d7dfeb}.pass{color:var(--ok);font-weight:700}.warn{color:var(--warn);font-weight:700}
+  code,pre{font-family:"JetBrains Mono",Consolas,monospace}
+  pre{background:#0a0d13;border:1px solid var(--line);border-radius:14px;padding:16px 18px;overflow:auto;font-size:13px;color:#cfe0f5;line-height:1.55}
+  footer{padding:42px 0 30px;border-top:1px solid var(--line);margin-top:20px;color:var(--dim);font-size:13px;text-align:center}
+
+  /* lightbox */
+  .lb{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;flex-direction:column;padding:24px}
+  .lb.show{display:flex}
+  .lb img{max-width:92vw;max-height:86vh;border-radius:12px;box-shadow:var(--shadow)}
+  .lb .lbc{color:#cbd6e6;margin-top:14px;font-size:14px}
+  .lb .close{position:absolute;top:18px;right:26px;font-size:34px;color:#fff;cursor:pointer;line-height:1}
+
+  /* back-to-top + app cta */
+  .cta{display:inline-block;margin-top:16px;background:linear-gradient(120deg,var(--accent),var(--accent2));color:#0b0e14;font-weight:700;padding:12px 26px;border-radius:99px;box-shadow:0 10px 30px rgba(110,168,255,.3)}
+</style>
+</head>
+<body>
+
+<!-- nav -->
+<nav class="nav">
+  <span class="brand">LANDSCAPE·ART</span>
+  <a href="#overview">概览</a><a href="#evo">演进</a><a href="#v4">V4</a><a href="#train">训练</a>
+  <a href="#gallery">画廊</a><a href="#gallery" data-f="v4">V4样张</a><a href="#gallery" data-f="sty">风格</a><a href="#gallery" data-f="sho">展示</a><a href="#gallery" data-f="sr">超分</a>
+  <a href="#stress">压测</a><a href="#usage">使用</a><a href="#artifacts">产物</a><a href="#docs">文档</a>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">Project · Report</span>
+    <h1>LANDSCAPE·ART</h1>
+    <p class="sub">基于 Flickr 风景摄影，在 RTX 3060 6GB 上用 SD 1.5 + LoRA 打造的<b style="color:#eaf2ff">风景生图模型</b>（V1→V4）。高质量、去重、可断点续训、压测稳定，并已上线 Web（Netlify 前端 + 本机 GPU 后端）。</p>
+    <div class="chips"><span>数据集 <b>1,664</b> 张</span><span>中位分辨率 <b>7952×5304</b></span><span>模型 <b>5</b> 代</span><span>GPU <b>3060 6GB</b></span><span>输出 <b>512 / 1024 / 2K / 4K</b></span><span>512 出图 <b>≈6s</b></span><span>压测 <b>PASS</b></span></div>
+    <a class="cta" href="http://127.0.0.1:7860" target="_blank">▶ 打开交互式 App（Gradio）</a>
+  </div>
+</header>
+<img class="coverimg" src="outputs/collage_cover.png" alt="项目封面">
+
+<div class="wrap">
+
+<section id="overview">
+  <span class="kicker">Overview</span><h2>一句话说明</h2>
+  <p class="lead">输入风格 prompt（或留空即随机），输出一张<b>全新、与训练/测试集不重复</b>的风景图；可 4x 超分到 2K，支持 img2img 参考图风格化。</p>
+  <div class="stats">
+    <div class="stat"><div class="n">1,664</div><div class="l">原始高清 JPG</div></div>
+    <div class="stat"><div class="n">42.5 MP</div><div class="l">平均分辨率</div></div>
+    <div class="stat"><div class="n">1,520/144</div><div class="l">训练/测试划分</div></div>
+    <div class="stat"><div class="n">5 代</div><div class="l">V1→V2→V3→V4→V4-640</div></div>
+    <div class="stat"><div class="n">4,560</div><div class="l">V4 增强训练 latent</div></div>
+    <div class="stat"><div class="n">0.1188</div><div class="l">V4 最优验证损失</div></div>
+    <div class="stat"><div class="n">≈6 s</div><div class="l">512 出图（24 步）</div></div>
+    <div class="stat"><div class="n">45+</div><div class="l">生图样张</div></div>
+  </div>
+</section>
+
+<section id="evo">
+  <span class="kicker">Evolution</span><h2>架构与训练演进</h2>
+  <p class="lead">从“能用”到“高质量、鲁棒、去重”，在 6GB 显存与过拟合之间做工程权衡。</p>
+  <div class="timeline">
+    <div class="tl"><span class="step s1">V1</span><h4>基座 SD1.5 · LoRA r16</h4><p>预计算 latent，fp16+检查点，512 训 3000 步，建立基线。</p></div>
+    <div class="tl"><span class="step s2">V2</span><h4>RealisticVision · BLIP · r32</h4><p>换摄影向基座；BLIP 生成 1664 张自然标题；rank 升 32，画质跃升。</p></div>
+    <div class="tl"><span class="step s3">V3</span><h4>潜空间强增强 + 验证选优</h4><p>随机翻转/缩放/平移推迟过拟合；每 200 步验证并自动存最优 checkpoint。</p></div>
+    <div class="tl"><span class="step s4">V3-640</span><h4>640 高清微调</h4><p>从 V3 权重 init，640 低 LR 900 步微调，提升原生高清。</p></div>
+    <div class="tl"><span class="step s1">V4</span><h4>源增强 + EMA + CLIP 微调</h4><p>1024 源图 × 3 随机裁剪（4560 latent）；rank 64、caption 丢弃、EMA、CLIP 低 LR 微调 → val 0.1188。</p></div>
+    <div class="tl"><span class="step s2">V4-640</span><h4>640 高清微调 + 上线</h4><p>从 V4 best init 640 微调（val 0.1262）；已作为线上默认权重。</p></div>
+  </div>
+</section>
+
+<section id="v4">
+  <span class="kicker">V4 · Latest</span><h2>V4：把过拟合曲线推后，再上一层画质</h2>
+  <p class="lead">在 6GB/SD1.5 的硬约束下，V4 不再靠“堆步数”，而是从<b>数据（源增强）</b>、<b>正则（EMA + caption 丢弃）</b>、<b>文本侧（CLIP 微调）</b>三处同时下手。</p>
+  <div class="timeline">
+    <div class="tl"><span class="step s1">1 · 源增强</span><h4>1024 重提取 + 3 随机裁剪</h4><p>从 zip 按 1024 重提取并复用 BLIP 标题；每图生成 3 个随机缩放/取景/翻转裁剪 → 训练 latent 1,520 → <b>4,560</b>，有效数据 ×3。</p></div>
+    <div class="tl"><span class="step s2">2 · 容量与正则</span><h4>rank 64 + dropout 0.1 + weight decay</h4><p>更大容量配合更强正则；caption 随机丢弃 0.05 提升 prompt 跟随与泛化。</p></div>
+    <div class="tl"><span class="step s3">3 · EMA</span><h4>权重滑动平均 0.9995</h4><p>每步更新 EMA，<b>验证与导出都用 EMA 权重</b>；训练曲线更平滑、成品更干净。</p></div>
+    <div class="tl"><span class="step s4">4 · 文本侧</span><h4>CLIP 文本编码低 LR 微调</h4><p>lr 1e-5 微调 text encoder，显著改善风格/概念对齐；训练与验证均改为在线编码 caption。</p></div>
+  </div>
+  <div class="note" style="margin-top:18px"><b>结果：</b>最优验证损失 <b>0.1188</b>（step 4800，EMA）；V4-640 微调后 <b>0.1262</b>（step 400）。
+  同 prompt 同 seed 的 V3↔V4 对比见 <code>outputs/v3_vs_v4.png</code>，V4 样张见 <code>outputs/gallery_v4/</code> 与 <code>outputs/gallery_v4_640/</code>。</div>
+  <div class="note" style="margin-top:12px"><b>速度真相：</b>500 步 ≈ 200 s 且更易过饱和；<b>标准 24 步 ≈ 6 s 且质量与 40 步基本一致</b>（≈33× 提速）。
+  另有 <b>LCM 极速模式</b>（4–6 步 ≈ 3–4 s）。实测对比：<code>outputs/bench/bench_compare.png</code>。</div>
+</section>
+
+<section id="train">
+  <span class="kicker">Training</span><h2>训练损失与验证曲线</h2>
+  <p class="lead">曲线显示验证损失在 <b>step 1000 最优（0.1176）</b> 后上升（过拟合），故发布最优 checkpoint 而非训到底。</p>
+  <div class="curve"><img class="lbimg" src="models/v3_lora/loss_curve.png" alt="V3 损失曲线"></div>
+  <div class="note"><b>工程取舍：</b>rank32 在 1,520 张图上约 1000 步起过拟合，采用“长调度+验证早停+自动存最优”得到泛化最好的权重。</div>
+</section>
+
+<!-- gallery filters -->
+<section id="gallery">
+  <span class="kicker">Gallery</span><h2>结果画廊（可筛选 / 点击放大）</h2>
+  <div class="filters">
+    <button class="fbtn on" id="f-all" data-t="all">全部</button>
+    <button class="fbtn" id="f-v4" data-t="v4">V4 样张(640→1024)</button>
+    <button class="fbtn" id="f-gal" data-t="gal">V3 画廊(1024)</button>
+    <button class="fbtn" id="f-sty" data-t="sty">艺术风格(1024)</button>
+    <button class="fbtn" id="f-sho" data-t="sho">大规模展示(768)</button>
+    <button class="fbtn" id="f-sr" data-t="sr">超分(2K/3K)</button>
+  </div>
+
+  <div class="imgs g3" data-cat="v4" style="display:none">
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v4_640/v4b_mountain_1024.png" alt="金山雾谷 · V4-640"><div class="cap"><b>金山雾谷</b><span>V4-640 · 两段式 1024</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v4_640/v4b_rainforest_1024.png" alt="雨林耶稣光 · V4-640"><div class="cap"><b>雨林耶稣光</b><span>V4-640 · 两段式 1024</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v4_640/v4b_waterfall_1024.png" alt="苔藓瀑布 · V4-640"><div class="cap"><b>苔藓瀑布</b><span>V4-640 · 两段式 1024</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v4/v4_desert_1024.png" alt="金色沙漠 · V4"><div class="cap"><b>金色沙漠</b><span>V4 · 两段式 1024</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v4/v4_coast_1024.png" alt="热带海岸 · V4"><div class="cap"><b>热带海岸</b><span>V4 · 两段式 1024</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v4/v4_lake_1024.png" alt="雪山湖泊 · V4"><div class="cap"><b>雪山湖泊</b><span>V4 · 两段式 1024</span></div></div>
+  </div>
+
+  <div class="imgs g3" data-cat="v4" style="display:none">
+    <div class="shot" style="grid-column:span 2"><img class="lbimg" src="outputs/v3_vs_v4.png" alt="V3 vs V4 同 prompt 对比"><div class="cap"><b>V3 ↔ V4 对比</b><span>同 prompt 上 V3 / 下 V4</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/bench/bench_compare.png" alt="步数/模式基准"><div class="cap"><b>速度×质量基准</b><span>40 / 24 / LCM 8·6·4 步</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/v4_4k.jpg" alt="4K 成品"><div class="cap"><b>4K 成品</b><span>ultimate upscale 4096</span></div></div>
+  </div>
+
+  <div class="imgs g3" data-cat="gal">
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v3/v2_20260909_152400_0_prompt.png"><div class="cap"><b>山谷日出</b><span>golden light · alpine</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v3/v2_20260909_152754_1_prompt.png"><div class="cap"><b>雨林瀑布</b><span>rainforest</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v3/v2_20260909_153148_2_prompt.png"><div class="cap"><b>金色沙漠</b><span>desert</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v3/v2_20260909_153603_3_prompt.png"><div class="cap"><b>热带海岸</b><span>coast</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v3/v2_20260909_154101_4_prompt.png"><div class="cap"><b>苔藓瀑布</b><span>waterfall</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/gallery_v3/v2_20260909_154519_5_prompt.png"><div class="cap"><b>雪山湖泊</b><span>alpine lake</span></div></div>
+  </div>
+
+  <div class="imgs g3" data-cat="sty" style="display:none">
+    <div class="shot"><img class="lbimg" src="outputs/styles/v2_20260909_174243_0_rand.png"><div class="cap"><b>油画</b><span>impasto</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/styles/v2_20260909_174903_1_rand.png"><div class="cap"><b>水墨</b><span>sumi-e</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/styles/v2_20260909_175649_2_rand.png"><div class="cap"><b>赛博朋克</b><span>cyberpunk</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/styles/v2_20260909_180331_3_rand.png"><div class="cap"><b>水彩</b><span>watercolor</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/styles/v2_20260909_180751_4_rand.png"><div class="cap"><b>丙烯印象</b><span>acrylic</span></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/styles/v2_20260909_181206_5_rand.png"><div class="cap"><b>线描极简</b><span>ink</span></div></div>
+  </div>
+
+  <div class="imgs g3" data-cat="sho" style="display:none">
+    <div class="shot"><img class="lbimg" src="outputs/showcase/v2_20260909_181255_0_rand.png"><div class="cap"><b>高山日出</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/showcase/v2_20260909_181321_1_rand.png"><div class="cap"><b>绿谷河流</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/showcase/v2_20260909_181437_3_rand.png"><div class="cap"><b>热带海岸</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/showcase/v2_20260909_181503_4_rand.png"><div class="cap"><b>峡谷瀑布</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/showcase/v2_20260909_181653_7_rand.png"><div class="cap"><b>海崖日落</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/showcase/v2_20260909_181836_11_rand.png"><div class="cap"><b>极光雪原</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/showcase/v2_20260909_181535_5_rand.png"><div class="cap"><b>雪山湖泊</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/showcase/v2_20260909_181628_6_rand.png"><div class="cap"><b>秋林小径</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/showcase/v2_20260909_181745_9_rand.png"><div class="cap"><b>草原风暴</b></div></div>
+  </div>
+
+  <div class="imgs g3" data-cat="sr" style="display:none">
+    <div class="shot"><img class="lbimg" src="outputs/super_res/sr_0.png"><div class="cap"><b>高山日出 · 2K</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/super_res/sr_1.png"><div class="cap"><b>雪山湖泊 · 2K</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/super_res/sr_2.png"><div class="cap"><b>海崖日落 · 2K</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/super_res/sr_3.png"><div class="cap"><b>草原风暴 · 2K</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/super_res/sr_4.png"><div class="cap"><b>极光雪原 · 2K</b></div></div>
+    <div class="shot"><img class="lbimg" src="outputs/super_res/sr_5.png"><div class="cap"><b>绿谷河流 · 2K</b></div></div>
+  </div>
+</section>
+
+<section id="stress">
+  <span class="kicker">Stress Test</span><h2>稳定性压测（PASS）</h2>
+  <p class="lead">七维压测全部通过。</p>
+  <table>
+    <thead><tr><th>维度</th><th>结果</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>确定性（同 seed）</td><td class="pass">MSE 0.0003</td><td>视觉一致</td></tr>
+      <tr><td>多样性（多 seed）</td><td class="pass">min MSE 0.103</td><td>差异明显不塌缩</td></tr>
+      <tr><td>边界 prompt</td><td class="pass">全部通过</td><td>空串/中文/超长/仅负向</td></tr>
+      <tr><td>512 / 768</td><td class="pass">2.8/3.7 GB</td><td>安全高效</td></tr>
+      <tr><td>1024（含高清修复）</td><td class="warn">峰值 6.7GB</td><td>超 6.1GB 上限（临界）</td></tr>
+      <tr><td>长程 30 次连续</td><td class="pass">7.71s±0.02s</td><td>时长恒定无退化</td></tr>
+      <tr><td>内存/输出退化</td><td class="pass">无/无</td><td>显存零增长、无 collapse</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><b>压测发现并修复：</b>空 prompt 传 <code>None</code> 会报错，已改为<b>空串</b>，使“空→随机”可用。</div>
+</section>
+
+<section id="usage">
+  <span class="kicker">Usage</span><h2>使用方式</h2>
+  <pre># 风格 prompt 生成
+python inference.py --base SG161222/Realistic_Vision_V6.0_B1_noVAE \
+  --lora "$ROOT/models/v3_640/adapter_best" \
+  --prompt "a misty alpine lake at dawn" --width 768 --height 768 --steps 45 --scheduler dpmpp2m_karras
+
+# 空提示 -> 随机
+python inference.py --base SG161222/Realistic_Vision_V6.0_B1_noVAE \
+  --lora "$ROOT/models/v3_640/adapter_best" --width 768 --height 768
+
+# 交互式 App
+双击  启动Gradio.bat   或   python app.py   →  http://127.0.0.1:7860
+
+# 4x 超分
+python upscale.py in.png out.png</pre>
+</section>
+
+<section id="artifacts">
+  <span class="kicker">Artifacts</span><h2>产物速查</h2>
+  <table>
+    <thead><tr><th>类别</th><th>路径</th></tr></thead>
+    <tbody>
+      <tr><td>最优权重(512)</td><td><code>models/v3_lora/adapter_best</code></td></tr>
+      <tr><td>最优权重(640)</td><td><code>models/v3_640/adapter_best</code></td></tr>
+      <tr><td>损失曲线</td><td><code>models/v3_lora/loss_curve.png</code></td></tr>
+      <tr><td>压测报告</td><td><code>outputs/stress/stress_report.json</code></td></tr>
+      <tr><td>画廊/风格/展示/超分</td><td><code>outputs/gallery_v3</code> <code>styles</code> <code>showcase</code> <code>super_res</code></td></tr>
+      <tr><td>脚本</td><td><code>train_text_to_image.py</code> <code>inference.py</code> <code>generate_v2_gallery.py</code> <code>stress_test.py</code> <code>upscale.py</code> <code>app.py</code></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="docs">
+  <span class="kicker">Docs</span><h2>文档与在线体验</h2>
+  <p class="lead">本报告的详细版（含环境变量总表、命令行参考、排错手册）在两份 Markdown 文档里；模型也可直接在网页上体验。</p>
+  <div class="timeline">
+    <div class="tl"><span class="step s1">主文档</span><h4>README.md</h4><p>项目速览、架构、V1→V4 演进、V4 详解、质量/速度基准、前端功能、工程规范化与环境变量、命令行参考、目录清单、压测结果、FAQ。</p></div>
+    <div class="tl"><span class="step s2">部署手册</span><h4>README_NETLIFY.md</h4><p>架构与数据流、启动后端、ngrok/Cloudflare 隧道（含清代理原因）、Netlify 环境变量与部署命令、验收清单、隧道换域名处理、并发配额、安全建议、<b>排错手册</b>。</p></div>
+    <div class="tl"><span class="step s3">在线体验</span><h4><your-site>.netlify.app</h4><p>28 个预制场景、质量/速度档位、清晰度（512→4K）、历史画廊、调试面板。需本机后端与隧道在线。</p></div>
+    <div class="tl"><span class="step s4">图标动效</span><h4>/makoto · /goose</h4><p>站点图标（pelican / makoto 静态 + 动画 SVG）与「雷霆·召唤」动效演示页。</p></div>
+  </div>
+  <div class="note" style="margin-top:16px">
+    <b>快速命令：</b>
+    <code>python app.py</code>（本地 Gradio :7860）·
+    <code>python server.py</code>（线上后端 :8001）·
+    <code>python train_v4.py --config config_v4.cfg</code>（V4 训练）·
+    <code>python bench_steps.py</code>（速度/质量基准）·
+    <code>python normalize_base.py</code>（基础模型转本地 safetensors）
+  </div>
+</section>
+
+<section>
+  <span class="kicker">Appendix</span><h2>附录 · 样张拼贴（4 组并排）</h2>
+  <div class="curve"><img class="lbimg" src="outputs/collage_groups.png"></div>
+</section>
+
+</div>
+
+<footer>LANDSCAPE·ART — 交互版项目说明 · 数据集 1664 张 · RTX 3060 6GB · V1→V4 · 压测 PASS · 512 出图 ≈6s</footer>
+
+<!-- lightbox -->
+<div class="lb" id="lb"><span class="close" id="lbclose">×</span><img id="lbimg" src=""><div class="lbc" id="lbc"></div></div>
+
+<script>
+  // 吸顶导航高亮
+  const links=[...document.querySelectorAll('.nav a')], secs=links.map(a=>document.querySelector(a.getAttribute('href')));
+  const spy=()=>{let y=window.scrollY+90,cur=0;secs.forEach((s,i)=>{if(s&&s.offsetTop<=y)cur=i});links.forEach((a,i)=>a.classList.toggle('on',i===cur))};
+  window.addEventListener('scroll',spy);spy();
+  // 图集筛选
+  const fbtns=[...document.querySelectorAll('.fbtn')], grids=[...document.querySelectorAll('.imgs')];
+  const applyFilter=t=>{
+    fbtns.forEach(x=>x.classList.toggle('on',x.dataset.t===t));
+    grids.forEach(g=>{const c=g.dataset.cat;g.style.display=(t==='all'||c===t)?'grid':'none'});
+  };
+  fbtns.forEach(b=>b.addEventListener('click',()=>applyFilter(b.dataset.t)));
+  // 导航里的「V4样张/风格/展示/超分」= 直接切到对应筛选视图
+  document.querySelectorAll('.nav a[data-f]').forEach(a=>a.addEventListener('click',()=>applyFilter(a.dataset.f)));
+  // lightbox
+  const lb=document.getElementById('lb'),lbimg=document.getElementById('lbimg'),lbc=document.getElementById('lbc');
+  [...document.querySelectorAll('.lbimg')].forEach(img=>img.addEventListener('click',()=>{
+    lbimg.src=img.src;lbc.textContent=img.alt||'';lb.classList.add('show');
+  }));
+  document.getElementById('lbclose').addEventListener('click',()=>lb.classList.remove('show'));
+  lb.addEventListener('click',e=>{if(e.target===lb)lb.classList.remove('show')});
+</script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+/* Landscape·Art — enterprise-grade mobile adaptation (V6).
+ *
+ * Strategy (not "scaled-down desktop"):
+ *   1. Single column, canvas FIRST (image above prompt).
+ *   2. Sticky bottom action/tab bar with safe-area padding.
+ *   3. 44px+ touch targets, larger type, no hover-dependent controls.
+ *   4. Scrollable status strip, collapsible panels, landscape-safe stage.
+ */
+
+/* ======================================================== tablet & below */
+
+@media (max-width: 1024px) {
+  .layout { grid-template-columns: 1fr; gap: 12px; }
+  .wrap, .shell { padding-inline: 10px; }
+}
+
+/* =============================================================== phones */
+
+@media (max-width: 720px) {
+  /* ---- top bar: brand + actions wrap, keep height compact ---- */
+  .topbar { padding: 8px 10px; gap: 8px; }
+  .topbar .brand img { width: 34px; height: 34px; }
+  .topbar .brand h1 { font-size: 17px; }
+  .topbar .brand p { display: none; }
+  .top-actions { gap: 6px; flex-wrap: nowrap; overflow-x: auto; }
+  .top-actions .btn { padding: 8px 10px; font-size: 12.5px; white-space: nowrap; }
+  .top-actions .btn[title] { max-width: none; }
+
+  /* ---- status strip scrolls horizontally, never wraps ---- */
+  .statusbar { overflow-x: auto; padding: 8px 10px; gap: 12px; scrollbar-width: none; }
+  .statusbar::-webkit-scrollbar { display: none; }
+
+  /* ---- canvas first: big stage right under the top bar ---- */
+  .layout { display: flex; flex-direction: column; }
+  #stagePanel { order: -1; }
+  .stage { height: min(62vh, 480px); min-height: 240px; }
+  .card { padding: 12px; border-radius: 14px; }
+  h2 { font-size: 19px; }
+
+  /* ---- 44 px touch targets ---- */
+  .btn { min-height: 44px; }
+  .btn.tiny { min-height: 36px; }
+  .chip { padding: 9px 13px; }
+  input, select, textarea { font-size: 16px; }      /* prevents iOS zoom-on-focus */
+  textarea#prompt { min-height: 96px; }
+
+  /* ---- collapsible secondary panels (details/summary pattern) ---- */
+  .column > .card:nth-child(n+3) { padding: 10px 12px; }
+
+  /* ---- gallery thumbnails denser ---- */
+  .gallery { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .gal { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+
+  /* ---- lightbox: minimal chrome, gesture-first ---- */
+  .lb-btn.prev, .lb-btn.next { bottom: 12vh; top: auto; }
+  .lb-hint { display: none; }
+  .lb-stage { max-height: 76vh; }
+  .lb-foot { max-width: 96vw; flex-wrap: wrap; justify-content: center; }
+
+  /* ---- studio chips fill the row ---- */
+  .chip-row .chip { flex: 1 1 auto; text-align: center; }
+
+  /* ---- sticky bottom action bar (generate) + tab bar ---- */
+  body { padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
+  .mobile-dock {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 30;
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: #07070cf2;
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+  }
+  .mobile-dock .btn.big { flex: 1; min-height: 48px; font-size: 15px; }
+  .mobile-tabs { display: flex; }
+  .mobile-tabs a {
+    flex: 1;
+    text-align: center;
+    padding: 8px 4px;
+    color: var(--muted);
+    font-size: 11.5px;
+    border-radius: 10px;
+  }
+  .mobile-tabs a.on, .mobile-tabs a:active { color: var(--accent-2); background: #ffffff0d; }
+
+  /* ---- compare slider easier to grab ---- */
+  .compare-handle { width: 34px; height: 34px; }
+}
+
+/* Dock/tabs only exist on phones (markup always present, hidden on desktop). */
+.mobile-dock { display: none; }
+@media (max-width: 720px) { .mobile-dock { display: flex; flex-direction: column; gap: 6px; } }
+
+/* landscape phones: keep the canvas usable */
+@media (max-width: 900px) and (orientation: landscape) {
+  .stage { height: 52vh; }
+  body { padding-bottom: 96px; }
+}
+
+/* big screens: no phone chrome */
+@media (min-width: 721px) {
+  .mobile-tabs { display: none; }
+}

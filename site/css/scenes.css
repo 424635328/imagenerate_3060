@@ -1,0 +1,121 @@
+/* Landscape·Art — Scene Explorer (V6): big art cards replacing text chips.
+ *
+ * The card grid is the "product feel" layer over the same 28 scenes from
+ * config.js.  Art is generated in CSS (gradient + glyph) so no image assets
+ * are needed; only transform/opacity/filter animate, per motion rules.
+ */
+
+.scene-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.scene-filters .chip { font-size: 12px; padding: 6px 10px; }
+
+.scene-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.scene-card {
+  --a: #7c5cff;
+  --b: #22d3ee;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  background: var(--surface-2, #12131c);
+  border: 1px solid var(--line, #ffffff14);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform var(--motion-micro, 140ms) var(--ease-standard, ease),
+              border-color var(--motion-fast, 180ms),
+              box-shadow var(--motion-fast, 180ms);
+}
+.scene-card:hover, .scene-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--a) 60%, transparent);
+  box-shadow: 0 10px 26px -12px color-mix(in srgb, var(--a) 55%, transparent);
+  outline: none;
+}
+
+.scene-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 92px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 140% at 15% 0%, color-mix(in srgb, var(--a) 55%, transparent), transparent 60%),
+    radial-gradient(120% 140% at 90% 100%, color-mix(in srgb, var(--b) 45%, transparent), transparent 60%),
+    linear-gradient(135deg, color-mix(in srgb, var(--a) 22%, #0a0b12), color-mix(in srgb, var(--b) 14%, #0a0b12));
+}
+/* group glyph: centered while the gradient is the only art (loading/fallback) */
+.scene-art .scene-glyph { font-size: 26px; }
+/* Generated artwork covers the gradient; onerror removes the <img> and the
+   gradient + centered glyph return. */
+.scene-art .scene-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--motion-normal, 240ms) var(--ease-emphasized, ease),
+              filter var(--motion-normal, 240ms);
+  filter: saturate(.94) contrast(1.02);
+}
+.scene-card:hover .scene-img { transform: scale(1.07); filter: saturate(1.05); }
+/* once a photo is present the glyph shrinks into the corner */
+.scene-art .scene-img ~ .scene-glyph {
+  position: absolute;
+  right: 7px;
+  bottom: 5px;
+  font-size: 15px;
+  filter: drop-shadow(0 1px 3px #000a);
+}
+
+.scene-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.scene-name .star {
+  color: #ffffff30;
+  font-size: 12px;
+  transition: color var(--motion-micro, 140ms), transform var(--motion-micro, 140ms);
+}
+.scene-name .star.on { color: #fbbf24; }
+.scene-name .star:hover { transform: scale(1.25); }
+
+.scene-en {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding: 0 10px 10px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--muted, #9aa0b4);
+}
+
+.scene-random {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.scene-empty {
+  grid-column: 1 / -1;
+  padding: 18px;
+  text-align: center;
+  color: var(--muted, #9aa0b4);
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .scene-grid { grid-template-columns: 1fr; }
+  .scene-art { height: 48px; }
+}

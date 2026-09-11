@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Pelican">
+  <title>Pelican — animated (Landscape·Art)</title>
+  <desc>动态鹈鹕图标：身体呼吸浮动、颈头轻摆、眨眼、喉囊微胀、徽章高光扫过。</desc>
+  <defs>
+    <linearGradient id="pl-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6ea8ff"/>
+      <stop offset="1" stop-color="#c084fc"/>
+    </linearGradient>
+    <clipPath id="pl-clip"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+
+  <style>
+    .bird, .neckhead, .eye, .pouch, .sheen { transform-box: view-box; }
+    .bird     { animation: pl-bob 3s ease-in-out infinite; }
+    .neckhead { transform-origin: 24.5px 40px; animation: pl-nod 3s ease-in-out infinite; }
+    .eye      { transform-origin: 41.7px 14.8px; animation: pl-blink 3.6s ease-in-out infinite; }
+    .pouch    { transform-origin: 45px 17.5px; animation: pl-pouch 3s ease-in-out infinite; }
+    .sheen    { animation: pl-sheen 6s ease-in-out infinite; }
+
+    @keyframes pl-bob   { 0%,100% { transform: translateY(0); }      50% { transform: translateY(-1.5px); } }
+    @keyframes pl-nod   { 0%,100% { transform: rotate(-1.8deg); }    50% { transform: rotate(1.8deg); } }
+    @keyframes pl-blink { 0%,90%,100% { transform: scaleY(1); }      94%,95% { transform: scaleY(.08); } }
+    @keyframes pl-pouch { 0%,100% { transform: scale(1); }           50% { transform: scale(1.05); } }
+    @keyframes pl-sheen { 0%,56% { transform: translateX(-60px); }   86%,100% { transform: translateX(120px); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bird, .neckhead, .eye, .pouch, .sheen { animation: none; }
+    }
+  </style>
+
+  <g clip-path="url(#pl-clip)">
+    <rect width="64" height="64" fill="url(#pl-bg)"/>
+    <!-- 徽章高光扫过 -->
+    <g transform="rotate(20 32 32)" opacity=".55">
+      <rect class="sheen" x="-60" y="-40" width="9" height="144" fill="#ffffff" opacity=".55"/>
+    </g>
+
+    <!-- 身体组：呼吸浮动 -->
+    <g class="bird">
+      <path d="M16 41 L7 36 L11 41.5 L12.5 47.5 Z" fill="#cedef3"/>
+      <ellipse cx="28.5" cy="43.4" rx="14.2" ry="10" fill="#cedef3"/>
+      <ellipse cx="28.5" cy="42.9" rx="13.9" ry="9.5" fill="#ffffff"/>
+      <path d="M17.6 40.6 C25 35.4 33.5 37.6 39 42.4 C31.5 41.6 23.5 41.4 17.6 40.6 Z" fill="#baccea"/>
+      <path d="M20.5 40.4 L28.5 38.4 L36.5 41.4" fill="none" stroke="#d0e0f5"
+            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <g stroke="#f59e0b" stroke-width="3.1" stroke-linecap="round">
+        <path d="M25 51.5 L23.8 58.4"/>
+        <path d="M33.4 51.5 L34.6 58.4"/>
+      </g>
+    </g>
+
+    <!-- 颈+头组：轻摆 -->
+    <g class="neckhead">
+      <path d="M24.5 40 C23.2 27.5 30 17.6 39.6 16.4" fill="none" stroke="#ffffff"
+            stroke-width="7.6" stroke-linecap="round"/>
+      <circle cx="40.3" cy="16.2" r="5.7" fill="#ffffff"/>
+      <path class="pouch" d="M44.6 13.3 L62 18.7 C55.6 27.4 47.2 25.8 44.2 19.4 Z" fill="#fbbf24"/>
+      <path d="M44.6 13.3 L62 18.7" fill="none" stroke="#f59e0b" stroke-width="1.7" stroke-linecap="round"/>
+      <circle class="eye" cx="41.7" cy="14.8" r="1.55" fill="#0b0e14"/>
+    </g>
+  </g>
+
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.4" fill="none"
+        stroke="#0b0e14" stroke-opacity=".22" stroke-width="1.5"/>
+</svg>

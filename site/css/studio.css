@@ -1,0 +1,49 @@
+/* Prompt Studio panels (js/studio.js): camera / lighting / inspiration / seed lab. */
+
+.studio-mount { display: flex; flex-direction: column; gap: var(--gap, 14px); }
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 4px;
+}
+.chip-row .chip { font-size: 12.5px; padding: 5px 11px; }
+.chip-row .chip.on {
+  background: var(--grad-accent, linear-gradient(120deg, #7c5cff, #22d3ee));
+  color: #0a0a12;
+  border-color: transparent;
+  font-weight: 650;
+}
+
+.studio-mount h3 {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 12px 0 4px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+.studio-mount h3 .muted { font-weight: 400; }
+
+.studio-mount input[type='range'] { width: 100%; accent-color: var(--accent); }
+
+/* live preview of what will be appended to the prompt */
+.studio-preview {
+  position: sticky;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: linear-gradient(100deg, #7c5cff26, #22d3ee1a), var(--surface-2);
+  border: 1px solid #7c5cff45;
+  border-radius: 12px;
+  padding: 9px 11px;
+  font-size: 12.5px;
+}
+.studio-preview b { color: var(--accent-2); font-weight: 650; }
+.studio-preview span { flex: 1; color: var(--text); }
+.studio-preview[hidden] { display: none; }
+
+/* Draft → Final emphasis */
+.studio-mount [data-role='final'] { min-width: 150px; }

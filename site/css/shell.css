@@ -1,0 +1,89 @@
+/* Landscape·Art — v7 shell (structure & heavy-usage optimisation).
+ *
+ * 1. Desktop IA: both columns become tabbed panels so the page stays short no
+ *    matter how many features ship — one card group visible at a time, the
+ *    canvas column keeps the stage always on screen above its tabs.
+ * 2. Mobile: all panels stay visible (the bottom dock is the mobile IA), so
+ *    anchor links keep working and no content is ever unreachable.
+ * 3. Long-page cost: content-visibility skips off-screen layout/paint for
+ *    gallery tiles, library rows and stat cards.
+ */
+
+/* ------------------------------------------------------------- tab bars */
+
+/* Safety net: several components set the `hidden` attribute on elements whose
+   class carries an explicit `display` (e.g. .scene-card{display:flex}), where
+   the attribute alone would lose.  Mobile re-shows .tab-panel below with a
+   higher-specificity rule. */
+[hidden] { display: none !important; }
+
+.panel-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 10px;
+  background: var(--surface-2, #12131c);
+  border: 1px solid var(--line, #ffffff14);
+  border-radius: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.panel-tabs::-webkit-scrollbar { display: none; }
+.panel-tabs button {
+  flex: 1 1 auto;
+  min-height: 36px;
+  padding: 7px 12px;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--muted, #9aa0b4);
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background var(--motion-micro, 140ms), color var(--motion-micro, 140ms),
+              transform var(--motion-micro, 140ms) var(--ease-standard, ease);
+}
+.panel-tabs button:hover { color: var(--text, #e8eaf2); }
+.panel-tabs button:active { transform: scale(.97); }
+.panel-tabs button.on {
+  color: var(--text, #e8eaf2);
+  background: linear-gradient(120deg, #7c5cff2b, #22d3ee1f);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent, #7c5cff) 45%, transparent);
+}
+
+.tab-panel[hidden] { display: none; }
+
+/* sticky topbar: the shell stays put while long panels scroll underneath.
+   z-index 20 keeps it under the lightbox (40), modals (45), palette/toast (60)
+   and the mobile dock (30). */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-bottom: 10px;
+  padding: 6px 0;
+  background: color-mix(in srgb, var(--bg, #07070c) 80%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line, #ffffff14);
+}
+
+/* anchor jumps must clear the sticky topbar */
+[id] { scroll-margin-top: 72px; }
+
+/* off-screen tiles skip layout/paint entirely (big wins on long galleries) */
+.gallery .tile, .queue-row, .lib-item, .stat-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 130px;
+}
+
+/* ------------------------------------------------------------- mobile */
+
+/* Phone IA = bottom dock + scroll; tabs hide and every panel stays visible. */
+@media (max-width: 720px) {
+  .panel-tabs { display: none; }
+  .tab-panel[hidden] { display: block !important; }
+  .topbar { position: static; }
+  [id] { scroll-margin-top: 8px; }
+  .gallery .tile, .queue-row, .lib-item, .stat-card { content-visibility: visible; }
+}

@@ -1,0 +1,132 @@
+/* Landscape·Art — Motion & Interaction layer (V6).
+ *
+ * One place for every animation on the product.  Rules:
+ *   1. Animate ONLY transform / opacity / filter / clip-path.
+ *   2. Fast in, slow out — never bounce AI-product buttons like a game.
+ *   3. Honor prefers-reduced-motion (everything collapses to opacity).
+ *   4. .lb-stage img must NOT be animated via CSS `animation` with fill-mode:
+ *      its transform is owned by the lightbox zoom engine.
+ *   5. Pure CSS where possible (stagger = nth-child delays); JS only for state.
+ */
+
+:root {
+  --motion-micro: 140ms;
+  --motion-fast: 180ms;
+  --motion-normal: 240ms;
+  --motion-slow: 360ms;
+  --motion-reveal: 520ms;
+  --ease-standard: cubic-bezier(.2, .8, .2, 1);
+  --ease-emphasized: cubic-bezier(.22, 1, .36, 1);
+  --ease-smooth: cubic-bezier(.16, 1, .3, 1);
+}
+
+/* ============================================================ image reveal */
+
+/* Richer blur-up reveal replacing the plain fade (same keyframe name). */
+@keyframes ls-fade-in {
+  from { opacity: 0; filter: blur(10px); transform: translateY(6px) scale(.985); }
+  to   { opacity: 1; filter: blur(0); transform: none; }
+}
+
+/* Batch grid: staggered reveal, ≤ 320 ms total. */
+.stage-grid img:nth-child(1) { animation-delay: 0ms; }
+.stage-grid img:nth-child(2) { animation-delay: 80ms; }
+.stage-grid img:nth-child(3) { animation-delay: 160ms; }
+.stage-grid img:nth-child(4) { animation-delay: 240ms; }
+
+/* Gallery items animate when inserted; keep hover SUBTLE (never > 1.03). */
+.gallery .gi img { background: var(--surface-3); }
+.gallery .gi:hover, .imgs .shot:hover { transform: translateY(-2px) scale(1.015); }
+
+/* ========================================================== buttons & CTA */
+
+.btn { transition: transform var(--motion-micro) var(--ease-standard),
+                 box-shadow var(--motion-micro) var(--ease-standard),
+                 background var(--motion-fast) var(--ease-standard),
+                 border-color var(--motion-fast) var(--ease-standard); }
+.btn:hover:not(:disabled) { transform: translateY(-1px) scale(1.01); }
+.btn:active:not(:disabled) { transform: scale(.97); }
+
+/* Generate lifecycle: label crossfades via .btn-label span; JS swaps text. */
+.btn .btn-label { display: inline-block; transition: opacity var(--motion-micro) ease, transform var(--motion-micro) ease; }
+.btn.is-swap .btn-label { opacity: 0; transform: translateY(-3px); }
+.btn.is-busy { background: linear-gradient(120deg, #7c5cff, #22d3ee, #7c5cff);
+               background-size: 220% 100%;
+               animation: btn-energy 1.6s linear infinite; }
+@keyframes btn-energy { to { background-position: 220% 0; } }
+.btn.is-done { background: linear-gradient(120deg, #22c55e, #4ade80); box-shadow: 0 8px 22px #22c55e3d; }
+
+/* =========================================================== prompt focus */
+
+textarea#prompt { transition: border-color var(--motion-fast) var(--ease-standard),
+                           box-shadow var(--motion-fast) var(--ease-standard); }
+textarea#prompt:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px #7c5cff26, 0 12px 30px #00000040;
+}
+
+/* chips feel magnetic, not clicky */
+.chip { transition: transform var(--motion-micro) var(--ease-standard),
+                   border-color var(--motion-fast), background var(--motion-fast); }
+.chip:hover { transform: translateY(-1px) scale(1.03); }
+
+/* ============================================================== skeletons */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-3);
+  border-radius: 10px;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, #ffffff14 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: skeleton-sweep 1.4s var(--ease-smooth) infinite;
+}
+@keyframes skeleton-sweep { to { transform: translateX(100%); } }
+
+/* ================================================================ toasts */
+
+.toast { transition: opacity var(--motion-fast) ease, transform var(--motion-fast) var(--ease-standard); }
+
+/* ==================================================== lightbox immersion */
+
+.lightbox { background: #02040af2; transition: background var(--motion-normal) ease; }
+.lightbox.show { animation: lb-in var(--motion-normal) var(--ease-emphasized); }
+@keyframes lb-in {
+  from { background: #02040a00; }
+  to   { background: #02040af2; }
+}
+.lightbox.show .lb-stage { animation: lb-pop var(--motion-normal) var(--ease-emphasized); }
+@keyframes lb-pop {
+  from { transform: scale(.96); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+/* compare slider handle gets a physical feel */
+.compare-handle { transition: transform var(--motion-micro) var(--ease-standard),
+                            box-shadow var(--motion-micro); }
+.compare-handle:hover { transform: scale(1.08); }
+.compare-handle:active { transform: scale(1.12); box-shadow: 0 0 0 6px #7c5cff26; }
+
+/* ====================================================== status pulse */
+
+.bad.pulse, .pill.pulse { animation: status-pulse 1.8s ease-in-out infinite; }
+@keyframes status-pulse { 50% { opacity: .45; } }
+
+/* cache hit highlight */
+.status.ok .instant { color: var(--accent-2); font-weight: 700; }
+
+/* ===================================================== reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

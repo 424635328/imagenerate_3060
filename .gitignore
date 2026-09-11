@@ -1,0 +1,161 @@
+# =============================================================================
+#  Landscape·Art — .gitignore
+#
+#  本地体积（2026-09 清理后，删除约 50 GB 历史产物）：
+#      models ≈ 17 GB   （基座 + 线上 adapter + HF 缓存，全部可再生）
+#      dataset1024 ≈ 1.3 GB   （训练数据与 latent 缓存）
+#      results ≈ 数十 MB   （后端任务结果，自动保留最近 500 个）
+#
+#  入库原则：**源码 + 配置 + 文档 + 站点资源 + 归档代码** 入库；
+#            **任何可再生的二进制（权重、数据集、缓存、生成图、日志、检查点）** 不入库。
+#  安全原则：**令牌、站点 ID、隧道真实域名、个人绝对路径** 只能存在于环境变量或
+#            本地未跟踪文件（`LOCAL_NOTES.md`），绝不进源码/文档/批处理/脚本。
+# =============================================================================
+
+# ---------- 1. 密钥与本地环境（最重要：切勿提交） ----------
+.env
+.env.*
+*.env
+!.env.example
+*.token
+*.secret
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.*
+!secrets.example.*
+credentials*.json
+service-account*.json
+id_rsa*
+known_hosts
+
+# 本地私有笔记：保存真实路径 / 令牌 / 站点 ID / 隧道域名，绝不入库
+LOCAL_NOTES.md
+
+# netlify-cli 本地状态（含站点 ID 与登录态）
+.netlify/
+.vercel/
+.envrc
+
+# 隧道客户端配置（ngrok.yml 内可含 authtoken）；ngrok.bat 只是启动器，可入库
+.ngrok/
+ngrok.yml
+ngrok.yaml
+
+# ---------- 2. Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+pip-log.txt
+*.log.tmp
+
+# ---------- 3. 模型权重与训练产物（≈17 GB，全部可再生） ----------
+# 由 tools/fetch_models.py / normalize_base.py 重建；v5 训练产物由 train_v5.py 重建
+models/**
+# 如需把「小体积」的 LoRA adapter 纳入版本库（V5 rank64 adapter ≈ 49 MB），
+# 取消下面 4 行注释（必须用 ** 形式，且中间目录要一并放行）：
+# !models/
+# !models/v5_lora/
+# !models/v5_lora/adapter_best/
+# !models/v5_lora/adapter_best/**
+
+# 兜底：任何位置的权重 / 大二进制 / 检查点
+*.safetensors
+*.ckpt
+*.pth
+*.pt
+*.bin
+*.onnx
+*.h5
+*.msgpack
+*.safetensors.index.json
+checkpoint-*/
+
+# ---------- 4. 数据集与 latent 缓存（≈1.3 GB） ----------
+dataset/
+dataset1024/
+dataset_v4/
+encoded_cache*.pt
+cache_v4*.pt
+cache_v5*.pt
+best_val.pt
+step_*.pt
+*_text_encoder.pt
+*.tmp.pt
+
+# ---------- 5. 生成产物与后端结果 ----------
+# 历史样张/对比图/拼贴：可由 archive/ 与 tools/ 的脚本重新生成（见 README §12.3）
+outputs/
+# server.py 线上任务结果（自动保留最近 500 个）
+results/
+
+# ---------- 6. 训练日志与流水线状态 ----------
+*.log
+models/*.log
+models/pipeline*.log
+models/train_driver.log
+models/*_probe.log
+nohup.out
+*.pid
+
+# ---------- 7. 检查脚本的临时输出 ----------
+tools/_*.txt
+tools/_*.log
+*_log.txt
+research/*.tmp
+research/thumbs/
+research/served_index.html
+research/_*.js
+
+# ---------- 8. research/：只保留可复现检查脚本 ----------
+# 其余一次性排查脚本与运行日志不入库（AGENTS.md 的 research/ 约定）
+research/*.log
+research/*.py
+!research/boot_verify.py
+!research/final_check.py
+!research/scan_secrets.py
+!research/secrets_report.md
+
+# ---------- 9. 编辑器 / 系统 ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.bak
+*.orig
+*.rej
+
+# ---------- 10. 前端 / 工具链 ----------
+node_modules/
+package-lock.json
+.pnpm-store/
+functions-dist/
+
+# =============================================================================
+#  说明：以下内容**刻意不忽略**，它们是项目资产，应当入库：
+#    *.py / *.cfg / *.md / *.html / *.js / *.mjs / *.toml / *.txt / *.ps1
+#    site/ 静态资源（含 site/img/scenes/*.webp 场景卡插图，约 1.5 MB）
+#    netlify/functions/proxy.js、netlify.toml
+#    archive/**          按版本号归档的 v1–v4 代码（日志除外）
+#    tools/**            工程工具与检查脚本（临时输出除外）
+#  提交前自查：
+#    python tools/check_paths.py        # 个人绝对路径与敏感串
+#    python research/final_check.py     # 脱敏总检（会打印 git 将提交的文件清单）
+# =============================================================================

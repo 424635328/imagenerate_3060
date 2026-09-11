@@ -1,0 +1,43 @@
+# Landscape·Art — 依赖清单（已在本机验证的版本组合）
+#
+# 验证环境：Windows 11 + Python 3.11.16 + NVIDIA RTX 3060 Laptop 6GB（compute 8.6）
+#           CUDA 12.4 / 驱动 566.36
+#
+# ⚠️ 安装顺序很重要：先装与你的驱动匹配的 CUDA 版 torch，再装其余依赖。
+#      CUDA 12.4（本项目验证环境）：
+#        pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124
+#      CUDA 12.1：把 cu124 换成 cu121；CPU-only 机器可省掉 --index-url（但训练/推理会极慢）。
+#
+# ⚠️ transformers 5.x 是大版本，本项目的训练脚本（train_v5.py）在其上验证通过；
+#      若你需要回退到 4.x，请同时确认 diffusers/peft 的兼容性，并重跑 tools/dev.ps1 check。
+
+# ---------- 核心运行时（server.py / app.py / enhance.py）----------
+torch==2.6.0
+torchvision==0.21.0
+numpy==2.4.6
+Pillow==12.3.0
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.13.5
+requests==2.34.2
+python-multipart==0.0.20          # FastAPI 表单/上传
+# ---------- 扩散模型栈（推理 + 训练）----------
+diffusers==0.40.0
+transformers==5.16.1
+accelerate==1.14.0
+peft==0.20.0                      # LoRA / DoRA / LoKr
+safetensors==0.8.0
+huggingface_hub==1.30.0
+spandrel==0.4.2                   # Real-ESRGAN / UltraSharp 权重加载
+# ---------- 训练专项（train_v5.py）----------
+bitsandbytes==0.50.2              # int8 基座（6GB 上训 SDXL 的关键，QLoRA）
+prodigyopt==1.1.2                 # Prodigy 优化器（自适应学习率）
+tqdm==4.70.0
+matplotlib==3.11.1                # 损失曲线
+# ---------- 本地 Gradio 界面（app.py，可选）----------
+gradio==6.26.0
+
+# 说明
+#  * 不包含 CUDA runtime：由 torch 的 cu1xx wheel 自带。
+#  * Windows 上 bitsandbytes 自 0.43 起有官方 wheel；Linux/macOS 见其 README。
+#  * 未使用 python-dotenv：环境变量统一由 shell / 启动器 / Netlify 站点设置提供。

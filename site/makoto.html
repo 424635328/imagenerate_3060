@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ 雷霆·召唤 — 结城理 动效演示</title>
+<link rel="icon" href="/makoto.svg" type="image/svg+xml">
+<style>
+  :root{--bg:#06080f;--panel:#111427;--line:#232a45;--text:#e8edf5;--muted:#93a0b4;--a1:#6ea8ff;--a2:#5a46be}
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      radial-gradient(900px 520px at 50% -10%,rgba(110,168,255,.20),transparent 60%),
+      radial-gradient(700px 420px at 82% 112%,rgba(90,70,190,.20),transparent 60%),var(--bg);
+    color:var(--text);font-family:"Segoe UI",system-ui,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:34px 20px 70px}
+  h1{font-size:26px;margin:0 0 6px;background:linear-gradient(120deg,#fff,#9cc0ff,#7c6bff);
+     -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .sub{color:var(--muted);font-size:13.5px;margin:0 0 4px}
+  .ip{color:#7f8aa3;font-size:12px;margin:0 0 22px}
+  .hero{display:flex;justify-content:center;padding:26px;border:1px solid var(--line);border-radius:22px;
+        background:linear-gradient(180deg,rgba(110,168,255,.08),rgba(90,70,190,.06));
+        box-shadow:0 0 70px rgba(110,168,255,.14) inset}
+  .hero img{width:min(420px,74vw);height:auto;border-radius:26px;
+            filter:drop-shadow(0 18px 44px rgba(110,168,255,.4))}
+  .beats{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:10px;margin-top:20px}
+  .beat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .beat b{color:#ffd479}.beat span{color:var(--muted);font-size:12.5px}
+  .sizes{display:flex;align-items:flex-end;gap:26px;margin-top:26px;flex-wrap:wrap}
+  .sizes figure{margin:0;text-align:center}
+  .sizes img{display:block;border-radius:12px}
+  .sizes figcaption{color:var(--muted);font-size:12px;margin-top:6px}
+  .row{display:flex;gap:14px;flex-wrap:wrap;margin-top:22px}
+  a.btn{display:inline-block;background:var(--panel);border:1px solid var(--line);color:var(--text);
+        text-decoration:none;padding:9px 15px;border-radius:10px;font-size:13.5px}
+  a.btn:hover{border-color:var(--a1)}
+  code{background:#0b0e1c;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12.5px;color:#bcd3f5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚡ 雷霆·召唤</h1>
+  <p class="sub">结城理风格化演绎 · 纯 SVG + CSS 动画（无 JS、无依赖）· 7 秒循环 · 支持 <code>prefers-reduced-motion</code></p>
+  <p class="ip">风格化同人致敬；原作《Persona 3 Reload》及其角色版权归 ATLUS / SEGA 所有，本页为非官方原创演绎。</p>
+
+  <div class="hero"><img src="/makoto-thunder.svg" alt="Thunder Summon"></div>
+
+  <div class="beats">
+    <div class="beat"><b>① 0.0–0.7s 雷霆开场</b><br><span>雷暴压暗 + 闪电闪光 + 云层</span></div>
+    <div class="beat"><b>② 0.7–1.0s 登场</b><br><span>从高空放大砸地 + 高速线</span></div>
+    <div class="beat"><b>③ 1.0–1.6s 冲击波</b><br><span>冲击环扩散 + 震屏抖动</span></div>
+    <div class="beat"><b>④ 1.6–3.8s 待机</b><br><span>呼吸浮动 / 发梢轻摆 / 眨眼</span></div>
+    <div class="beat"><b>⑤ 3.8–4.9s 召唤</b><br><span>抬臂 · 召唤器抵住太阳穴 · 电弧炸开</span></div>
+    <div class="beat"><b>⑥ 4.9–5.8s 出场</b><br><span>蓝焰光晕爆发 + 冲天消散</span></div>
+    <div class="beat"><b>⑦ 5.8–6.4s 转场</b><br><span>斜向光带扫过 + 全屏闪白</span></div>
+    <div class="beat"><b>⑧ 6.4–7.0s 黑场</b><br><span>虹膜收束 → 循环回雷霆</span></div>
+  </div>
+
+  <div class="sizes">
+    <figure><img src="/makoto-thunder.svg" width="128" height="128" alt=""><figcaption>128px（动画版）</figcaption></figure>
+    <figure><img src="/makoto-thunder.svg" width="72" height="72" alt=""><figcaption>72px</figcaption></figure>
+    <figure><img src="/makoto-thunder.svg" width="38" height="38" alt=""><figcaption>38px（页头实况）</figcaption></figure>
+    <figure><img src="/makoto.svg" width="38" height="38" alt=""><figcaption>38px 静态版对照</figcaption></figure>
+  </div>
+
+  <div class="row">
+    <a class="btn" href="/">← 返回生成页</a>
+    <a class="btn" href="/makoto-thunder.svg" target="_blank">打开动画 SVG 源文件</a>
+    <a class="btn" href="/makoto.svg" target="_blank">静态版 SVG</a>
+    <a class="btn" href="/makoto.cfg" target="_blank">图标配置 makoto.cfg</a>
+    <a class="btn" href="/goose.html">🦢 大鹅版（旧）</a>
+  </div>
+</div>
+</body>
+</html>

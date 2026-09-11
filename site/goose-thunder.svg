@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Thunder Goose">
+  <title>Thunder Goose — Landscape·Art</title>
+  <desc>超级雷霆大鹅：雷暴底 → 闪电闪光 → 大鹅砸地入场 → 冲击波震屏 → 蓄力电弧 → 火箭出场 → 光带转场 → 黑场虹膜循环。</desc>
+  <defs>
+    <linearGradient id="tg-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2350"/><stop offset=".55" stop-color="#3a2a6b"/><stop offset="1" stop-color="#6d3f9c"/>
+    </linearGradient>
+    <radialGradient id="tg-glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#9fe8ff" stop-opacity=".95"/>
+      <stop offset=".55" stop-color="#6ea8ff" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#6ea8ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tg-streak" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".45" stop-color="#dff3ff" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="tg-clip"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+
+  <style>
+    .gs, .gs-neck, .gs-eye, .gs-pouch, .ring, .streak, .iris, .bolt, .flash, .dark, .arcs, .aura, .speed, .goose, .shake {
+      transform-box: view-box;
+    }
+    .goose { transform-origin: 32px 32px; animation: tg-goose 7s cubic-bezier(.2,.7,.3,1) infinite; }
+    .shake { transform-origin: 32px 32px; animation: tg-shake 7s linear infinite; }
+    .gs      { animation: tg-bob 3s ease-in-out infinite; transform-origin: 32px 40px; }
+    .gs-neck { animation: tg-nod 3s ease-in-out infinite; transform-origin: 24.5px 40px; }
+    .gs-eye  { animation: tg-blink 3.6s ease-in-out infinite; transform-origin: 41.7px 14.8px; }
+    .gs-pouch{ animation: tg-pouch 3s ease-in-out infinite; transform-origin: 45px 17.5px; }
+    .dark   { animation: tg-dark 7s linear infinite; }
+    .flash  { animation: tg-flash 7s linear infinite; }
+    .bolt   { animation: tg-bolt 7s linear infinite; }
+    .ring   { transform-origin: 32px 44px; animation: tg-ring 7s ease-out infinite; }
+    .arcs   { animation: tg-arcs 7s linear infinite; }
+    .aura   { transform-origin: 32px 34px; animation: tg-aura 7s ease-in-out infinite; }
+    .speed  { animation: tg-speed 7s linear infinite; }
+    .streak { animation: tg-streak 7s ease-in-out infinite; }
+    .iris   { transform-origin: 32px 32px; animation: tg-iris 7s ease-in-out infinite; }
+
+    @keyframes tg-goose {
+      0%, 7%    { transform: translate(7px,-48px) scale(2.7) rotate(-9deg); opacity: 0; }
+      10%       { transform: translate(2px,-22px) scale(1.8) rotate(-4deg); opacity: 1; }
+      13%       { transform: translate(0,2px)  scale(1.04) rotate(0deg); }
+      15%       { transform: translate(0,-1.5px) scale(.98); }
+      18%, 54%  { transform: translate(0,-1.5px) scale(1); opacity: 1; }
+      58%, 70%  { transform: translate(0,0) scale(1.04); }
+      74%       { transform: translate(0,-2px) scale(1); }
+      78%       { transform: translate(16px,-36px) scale(.42) rotate(14deg); opacity: 1; }
+      84%, 100% { transform: translate(36px,-72px) scale(.16) rotate(20deg); opacity: 0; }
+    }
+    @keyframes tg-shake {
+      0%, 11%   { transform: translate(0,0); }
+      12%       { transform: translate(-.9px,.5px); }
+      13.5%     { transform: translate(.8px,-.6px); }
+      15%       { transform: translate(-.6px,-.4px); }
+      16.5%     { transform: translate(.5px,.5px); }
+      18%       { transform: translate(0,0); }
+      57%       { transform: translate(0,0); }
+      58.5%     { transform: translate(-.5px,.4px); }
+      60%       { transform: translate(.6px,-.4px); }
+      61.5%     { transform: translate(-.4px,.3px); }
+      63%       { transform: translate(0,0); }
+      73%       { transform: translate(0,0); }
+      74.5%     { transform: translate(.7px,-.5px); }
+      76%       { transform: translate(-.6px,.4px); }
+      77.5%     { transform: translate(0,0); }
+      100%      { transform: translate(0,0); }
+    }
+    @keyframes tg-bob   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+    @keyframes tg-nod   { 0%,100% { transform: rotate(-1.8deg); } 50% { transform: rotate(1.8deg); } }
+    @keyframes tg-blink { 0%,90%,100% { transform: scaleY(1); } 94%,95% { transform: scaleY(.08); } }
+    @keyframes tg-pouch { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @keyframes tg-dark  { 0%{opacity:.85} 4%{opacity:.2} 7%{opacity:.78} 10%{opacity:.25} 14%{opacity:.62}
+                          20%{opacity:.1} 30%{opacity:0} 70%{opacity:0} 76%{opacity:.35} 82%{opacity:.1}
+                          90%{opacity:.7} 100%{opacity:.85} }
+    @keyframes tg-flash { 0%,2%{opacity:0} 3.5%{opacity:.95} 5%{opacity:0} 7%{opacity:.55} 9%{opacity:0}
+                          84%{opacity:0} 86%{opacity:.9} 88%{opacity:0} 100%{opacity:0} }
+    @keyframes tg-bolt  { 0%,2%{opacity:0} 3%{opacity:1} 4.5%{opacity:.1} 6%{opacity:.9} 9%{opacity:0}
+                          85%{opacity:0} 86.5%{opacity:1} 88%{opacity:0} 100%{opacity:0} }
+    @keyframes tg-ring  { 0%,11%{transform:scale(.15); opacity:0} 13%{transform:scale(.3); opacity:.95}
+                          22%{transform:scale(2.1); opacity:0} 72%{transform:scale(.2); opacity:0}
+                          74%{transform:scale(.4); opacity:.9} 84%{transform:scale(2.4); opacity:0} 100%{opacity:0} }
+    @keyframes tg-arcs  { 0%,54%{opacity:0} 56%{opacity:1} 58%{opacity:.15} 60%{opacity:.95} 62%{opacity:.2}
+                          64%{opacity:1} 66%{opacity:.1} 70%{opacity:0} 100%{opacity:0} }
+    @keyframes tg-aura  { 0%,13%{transform:scale(.5); opacity:0} 16%{transform:scale(1); opacity:.5}
+                          30%{transform:scale(1.12); opacity:.32} 54%{transform:scale(1); opacity:.28}
+                          58%{transform:scale(1.35); opacity:.95} 66%{transform:scale(1.2); opacity:.7}
+                          72%{transform:scale(1.1); opacity:.5} 80%{transform:scale(.6); opacity:0} 100%{opacity:0} }
+    @keyframes tg-speed { 0%,8%{opacity:0} 10%{opacity:.9} 16%{opacity:0} 70%{opacity:0} 74%{opacity:.85}
+                          82%{opacity:0} 100%{opacity:0} }
+    @keyframes tg-streak{ 0%,84%{transform:translateX(-46px); opacity:0} 86%{opacity:1}
+                          92%{transform:translateX(46px); opacity:0} 100%{opacity:0} }
+    @keyframes tg-iris  { 0%,88%{transform:scale(0); opacity:0} 93%{transform:scale(2.6); opacity:1}
+                          96%{transform:scale(2.6); opacity:1} 100%{transform:scale(0); opacity:0} }
+
+    @media (prefers-reduced-motion: reduce) {
+      .goose,.shake,.gs,.gs-neck,.gs-eye,.gs-pouch,.dark,.flash,.bolt,.ring,.arcs,.aura,.speed,.streak,.iris
+      { animation: none; }
+      .dark{opacity:0} .flash,.bolt,.arcs,.speed,.streak,.iris{opacity:0} .aura{opacity:.35}
+    }
+  </style>
+
+  <g clip-path="url(#tg-clip)">
+    <!-- 雷暴天空 -->
+    <rect width="64" height="64" fill="url(#tg-sky)"/>
+    <g opacity=".5" fill="#0d1230">
+      <ellipse cx="14" cy="9" rx="16" ry="7"/><ellipse cx="40" cy="6" rx="18" ry="6.5"/>
+      <ellipse cx="56" cy="13" rx="14" ry="6"/><ellipse cx="26" cy="14" rx="13" ry="5"/>
+    </g>
+
+    <g class="shake">
+      <!-- 闪电 -->
+      <g class="bolt" stroke-linejoin="round" fill="none">
+        <path d="M33 1 L25 21 L31 21 L22 42" stroke="#dff3ff" stroke-width="3.4" opacity=".35"/>
+        <path d="M33 1 L25 21 L31 21 L22 42" stroke="#ffffff" stroke-width="1.5"/>
+        <path d="M46 3 L42 16 L46 16 L41 30" stroke="#dff3ff" stroke-width="2.2" opacity=".3"/>
+        <path d="M46 3 L42 16 L46 16 L41 30" stroke="#ffffff" stroke-width="1"/>
+      </g>
+
+      <!-- 高速线（入场/出场） -->
+      <g class="speed" stroke="#eaf6ff" stroke-width="1.1" stroke-linecap="round" opacity=".9">
+        <path d="M17 3 L17 15"/><path d="M25 -1 L25 11"/><path d="M39 1 L39 13"/><path d="M47 5 L47 17"/>
+      </g>
+
+      <!-- 冲击波 -->
+      <circle class="ring" cx="32" cy="44" r="18" fill="none" stroke="#bfe6ff" stroke-width="1.6" opacity="0"/>
+
+      <!-- 大鹅 -->
+      <g class="goose">
+        <circle class="aura" cx="32" cy="34" r="22" fill="url(#tg-glow)" opacity="0"/>
+        <g class="gs">
+          <path d="M16 41 L7 36 L11 41.5 L12.5 47.5 Z" fill="#cedef3"/>
+          <ellipse cx="28.5" cy="43.4" rx="14.2" ry="10" fill="#cedef3"/>
+          <ellipse cx="28.5" cy="42.9" rx="13.9" ry="9.5" fill="#ffffff"/>
+          <path d="M17.6 40.6 C25 35.4 33.5 37.6 39 42.4 C31.5 41.6 23.5 41.4 17.6 40.6 Z" fill="#baccea"/>
+          <g stroke="#f59e0b" stroke-width="3.1" stroke-linecap="round">
+            <path d="M25 51.5 L23.8 58.4"/><path d="M33.4 51.5 L34.6 58.4"/>
+          </g>
+        </g>
+        <g class="gs-neck">
+          <path d="M24.5 40 C23.2 27.5 30 17.6 39.6 16.4" fill="none" stroke="#ffffff"
+                stroke-width="7.6" stroke-linecap="round"/>
+          <circle cx="40.3" cy="16.2" r="5.7" fill="#ffffff"/>
+          <path class="gs-pouch" d="M44.6 13.3 L62 18.7 C55.6 27.4 47.2 25.8 44.2 19.4 Z" fill="#fbbf24"/>
+          <path d="M44.6 13.3 L62 18.7" fill="none" stroke="#f59e0b" stroke-width="1.7" stroke-linecap="round"/>
+          <circle class="gs-eye" cx="41.7" cy="14.8" r="1.55" fill="#0b0e14"/>
+        </g>
+        <!-- 蓄力电弧 -->
+        <g class="arcs" stroke="#9fe8ff" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0">
+          <path d="M11 25 L16 29 L12 32 L18 36"/>
+          <path d="M53 38 L48 42 L54 45"/>
+          <path d="M21 10 L25 14 L20 17"/>
+          <path d="M44 22 L48 25 L44 28"/>
+        </g>
+      </g>
+
+      <!-- 转场光带 -->
+      <rect class="streak" x="-46" y="-24" width="26" height="112" fill="url(#tg-streak)" transform="rotate(18 32 32)"/>
+    </g>
+
+    <!-- 雷暴压暗 / 闪光 / 黑场虹膜 -->
+    <rect class="dark" width="64" height="64" fill="#050718"/>
+    <rect class="flash" width="64" height="64" fill="#ffffff" opacity="0"/>
+    <circle class="iris" cx="32" cy="32" r="30" fill="#050718" opacity="0"/>
+  </g>
+
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.4" fill="none"
+        stroke="#0b0e14" stroke-opacity=".28" stroke-width="1.5"/>
+</svg>

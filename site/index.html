@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<meta name="description" content="Landscape·Art — 本地 GPU 风景生成工作台：SD1.5 + V4 LoRA，渐进预览、少步采样、WebP 分块回传。">
+<title>LANDSCAPE·ART · 风景生成工作台</title>
+<link rel="icon" href="/makoto.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/makoto-180.png">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/extra.css">
+<!-- V6 studio finish: tokens + component skin, loaded last so they win -->
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/palette.css">
+<link rel="stylesheet" href="/css/studio.css">
+<!-- V6 motion & enterprise mobile layers (loaded last) -->
+<link rel="stylesheet" href="/css/motion.css">
+<link rel="stylesheet" href="/css/mobile.css">
+<!-- V6 wave 2: scene explorer / prompt composer / A-B lab -->
+<link rel="stylesheet" href="/css/scenes.css">
+<link rel="stylesheet" href="/css/composer.css">
+<link rel="stylesheet" href="/css/ab.css">
+<!-- v7 shell: tabbed panels + sticky topbar + long-page rendering -->
+<link rel="stylesheet" href="/css/shell.css">
+</head>
+<body>
+<a class="skip" href="#stagePanel">跳到画布</a>
+
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <img src="/makoto-thunder.svg" alt="" width="44" height="44">
+      <div>
+        <h1>LANDSCAPE·ART</h1>
+        <p>本地 GPU 风景生成工作台 · SD1.5 + V4 LoRA · 渐进预览 / WebP 分块回传</p>
+      </div>
+    </div>
+    <nav class="top-actions" aria-label="全局操作">
+      <button type="button" class="btn ghost" id="cmdkBtn" title="命令面板（Ctrl+K）">⌘ 命令</button>
+      <button type="button" class="btn ghost" id="warmBtn" title="提前加载管线，消除首图冷启动">🔥 预热</button>
+      <button type="button" class="btn ghost" id="shareBtn" title="把当前参数编码到链接">🔗 分享参数</button>
+      <button type="button" class="btn ghost" id="dataBtn" title="导入 / 导出历史与配方">🗂 数据</button>
+      <button type="button" class="btn ghost" id="themeBtn">☀️ 亮色</button>
+      <button type="button" class="btn ghost" id="helpBtn" title="快捷键说明">? 帮助</button>
+    </nav>
+  </header>
+
+  <section class="statusbar" aria-label="后端状态">
+    <div class="metric"><small>后端</small><b id="srv" class="bad">检测中…</b></div>
+    <div class="metric"><small>队列 / 运行</small><b id="queueMetric">—</b></div>
+    <div class="metric"><small>累计完成</small><b id="doneMetric">—</b></div>
+    <div class="metric"><small>显存</small><b id="vramMetric">—</b></div>
+    <div class="metric"><small>本地历史</small><b id="historyCount">0 张</b></div>
+  </section>
+
+  <main class="layout">
+    <!-- ------------------------------------------------ 左栏：创作控制 -->
+    <div class="column">
+      <nav class="panel-tabs" data-shell="left" aria-label="左栏分区">
+        <button type="button" data-panel="create" class="on">🎨 创作</button>
+        <button type="button" data-panel="params">🎛 参数</button>
+        <button type="button" data-panel="ref">🖼 参考图</button>
+        <button type="button" data-panel="lab">🧪 实验室</button>
+        <button type="button" data-panel="recipes">💾 配方</button>
+      </nav>
+      <section class="tab-panel" data-shell="left" data-panel="create">
+      <section class="card">
+        <p class="eyebrow">Prompt Studio</p>
+        <h2>构图、风格与修饰词</h2>
+        <p class="muted">留空即随机抽场景。修饰词会自动追加到 prompt 末尾，<kbd>Ctrl</kbd>+<kbd>Enter</kbd> 直接生成。</p>
+
+        <div class="field">
+          <label for="prompt">Prompt <b id="promptCount">0/500</b></label>
+          <textarea id="prompt" maxlength="500" placeholder="a misty alpine lake at dawn, dramatic clouds"></textarea>
+        </div>
+        <!-- V6 Prompt Composer：词条条 + 11 组结构化词条（textarea 仍是唯一数据源） -->
+        <div class="composer" id="composer">
+          <div class="composer-tokens" id="composerTokens" aria-label="Prompt 词条"></div>
+          <details class="composer-groups" id="composerGroups">
+            <summary>＋ 词条组 · 主体 / 环境 / 天气 / 光线 / 时间 / 季节 / 镜头 / 景深 / 构图 / 色调 / 风格</summary>
+            <div class="composer-grid" id="composerGrid"></div>
+          </details>
+        </div>
+        <div class="btn-row tight">
+          <button type="button" class="btn ghost tiny" id="surprise">🎲 随机一句</button>
+          <button type="button" class="btn ghost tiny" id="clearPrompt">清空</button>
+          <button type="button" class="btn ghost tiny" id="copyPrompt">复制完整 prompt</button>
+        </div>
+        <p class="composed" id="composed" aria-live="polite">（留空将随机抽取场景）</p>
+
+        <div class="row">
+          <div class="field">
+            <label for="style">画风</label>
+            <select id="style">
+              <option>写实摄影</option><option>油画</option><option>水墨</option>
+              <option>赛博朋克</option><option>水彩</option><option>丙烯印象</option><option>动漫</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="random">随机模式</label>
+            <label class="toggle"><input type="checkbox" id="random"> Surprise 随机 prompt</label>
+          </div>
+        </div>
+
+        <h3>场景库 <span class="muted" id="sceneCount">28 个场景</span></h3>
+        <input type="search" id="sceneSearch" placeholder="搜索场景：雪山 / waterfall / aurora…" aria-label="搜索场景">
+        <div id="scenes"></div>
+
+        <h3>修饰词</h3>
+        <div id="modifiers"></div>
+      </section>
+      </section>
+
+      <section class="tab-panel" data-shell="left" data-panel="params" hidden>
+      <section class="card">
+        <p class="eyebrow">Quality &amp; Speed</p>
+        <h2>质量、速度与尺寸</h2>
+        <p class="hint">24 步 DPM++ 2M Karras ≈ 6 s，已接近收敛；500 步约 4 分钟且更易过饱和。要更快就用 LCM 6 步草稿，
+          要更细腻就用 SDE 32 步或高清重绘，不要靠堆步数。</p>
+
+        <div class="row">
+          <div class="field">
+            <label for="recipe">生成配方</label>
+            <select id="recipe">
+              <option value="fast">⚡ 极速草稿 · LCM 6 步</option>
+              <option value="std" selected>⚖️ 标准成片 · DPM++ 2M Karras 24 步</option>
+              <option value="tcd">🚀 TCD 少步 · 6 步</option>
+              <option value="fine">✨ 精细纹理 · DPM++ 2M SDE 32 步</option>
+              <option value="custom">🎛 自定义</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sampler">采样器</label>
+            <select id="sampler">
+              <option value="dpmpp2m_karras">DPM++ 2M Karras</option>
+              <option value="dpmpp2m_sde">DPM++ 2M SDE Karras</option>
+              <option value="dpmpp2m">DPM++ 2M</option>
+              <option value="euler_a">Euler Ancestral</option>
+              <option value="euler">Euler</option>
+              <option value="ddim">DDIM</option>
+              <option value="lcm">LCM（少步）</option>
+              <option value="tcd">TCD（少步）</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="steps">步数 <b id="stepsHint">24</b></label>
+            <input type="range" id="steps" min="2" max="60" step="1" value="24">
+          </div>
+          <div class="field">
+            <label for="cfg">CFG <b id="cfgHint">7.5</b></label>
+            <input type="range" id="cfg" min="1" max="15" step="0.5" value="7.5">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="seed">Seed（-1 随机）</label>
+            <input type="number" id="seed" min="-1" value="-1">
+          </div>
+          <div class="field align-end">
+            <button type="button" class="btn ghost" id="dice">🎲 换 seed</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="res">基础分辨率</label>
+            <select id="res"><option>512</option><option>640</option><option>768</option></select>
+          </div>
+          <div class="field">
+            <label for="aspect">画幅</label>
+            <select id="aspect"><option>方</option><option>横</option><option>竖</option></select>
+          </div>
+          <div class="field">
+            <label for="batch">批量</label>
+            <select id="batch"><option value="1">1 张</option><option value="2">2 张</option><option value="4">4 张</option></select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="clarity">清晰度方案</label>
+            <select id="clarity">
+              <option value="std">标准 · 512/640</option>
+              <option value="hd">高清 · 1024 两段式</option>
+              <option value="ultra">超清 · 2048 ultimate</option>
+              <option value="max">极清 · 3072 ultimate</option>
+              <option value="4k">4K · 4096（分块回传）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sr">超分模型</label>
+            <select id="sr"><option value="ultrasharp">4x-UltraSharp</option><option value="realesrgan">Real-ESRGAN</option></select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="negPreset">负向预设</label>
+            <select id="negPreset"></select>
+          </div>
+          <div class="field">
+            <label for="neg">负向 Prompt <b id="negHint"></b></label>
+            <input id="neg" value="blurry, low quality, watermark, text, distorted, oversaturated, bad anatomy">
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn big" id="generate"><span class="btn-label">✨ 生成图像</span></button>
+          <button type="button" class="btn ghost" id="reroll">🎲 换 seed 生成</button>
+          <button type="button" class="btn ghost" id="saveRecipe">💾 存为配方</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </section>
+      </section>
+
+      <section class="tab-panel" data-shell="left" data-panel="ref" hidden>
+      <section class="card">
+        <p class="eyebrow">Reference / img2img</p>
+        <h2>参考图（浏览器端压缩上传）</h2>
+        <p class="muted" id="uploadHint">参考图会在浏览器压缩到 ≤ 1.2 MB 后上传，通常比原图快 10–40 倍。</p>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择或拖入参考图">
+          <span>点击选择 · 拖拽放入 · 或直接 Ctrl+V 粘贴</span>
+          <input type="file" id="file" accept="image/*" hidden>
+        </div>
+        <div class="upload-row">
+          <div id="uploadPreview" class="upload-thumb"></div>
+          <div class="upload-meta"><p id="uploadInfo" class="muted"></p>
+            <button type="button" class="btn ghost tiny" id="uploadClear" hidden>移除参考图</button></div>
+        </div>
+        <div class="field" id="strengthRow" hidden>
+          <label for="strength">重绘强度 <b id="strengthHint">0.55</b>（越低越贴近原图）</label>
+          <input type="range" id="strength" min="0.1" max="0.95" step="0.05" value="0.55">
+        </div>
+      </section>
+      </section>
+
+      <section class="tab-panel" data-shell="left" data-panel="lab" hidden>
+      <!-- Prompt Studio：摄影师模式 / 光线实验室 / 一键灵感 / Seed Lab / 两段式出片 -->
+      <div class="studio-mount" id="studioMount"></div>
+
+      <!-- V6 A/B Test：两版 prompt 各 2 张，完成后自动并排对比 -->
+      <div class="studio-mount" id="abMount"></div>
+      </section>
+
+      <section class="tab-panel" data-shell="left" data-panel="recipes" hidden>
+      <section class="card">
+        <p class="eyebrow">Recipes</p>
+        <h2>一键配方</h2>
+        <div id="recipes"></div>
+      </section>
+      </section>
+    </div>
+
+    <!-- ------------------------------------------------ 右栏：输出与观测 -->
+    <div class="column">
+      <section class="card" id="stagePanel">
+        <div class="card-head">
+          <div><p class="eyebrow">Canvas</p><h2>实时画布</h2></div>
+          <div class="stage-tools">
+            <button type="button" class="btn ghost tiny" id="compareBtn" aria-pressed="false" title="与上一张对比（C）">⇄ 对比</button>
+            <button type="button" class="btn ghost tiny" id="fullscreen" title="全屏查看（F）">⤢ 全屏</button>
+          </div>
+        </div>
+
+        <div class="stage" id="stage">
+          <button type="button" class="stage-nav prev" id="stagePrev" aria-label="上一张（左方向键）">‹</button>
+          <div class="stage-canvas" id="stageCanvas"></div>
+          <button type="button" class="stage-nav next" id="stageNext" aria-label="下一张（右方向键）">›</button>
+          <span class="preview-badge" id="previewBadge" hidden>渐进预览</span>
+          <span class="stage-pos" id="stagePos"></span>
+        </div>
+
+        <div class="progress" id="progress" hidden>
+          <div class="track"><i id="progressBar"></i></div>
+          <span class="muted" id="progressLabel"></span>
+        </div>
+
+        <div class="result-meta">
+          <span id="resultMeta">等待任务</span>
+          <span id="transferMeta" class="muted">传输：WebP · 大图并行分块</span>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn ghost" id="download">⤓ 下载当前图</button>
+          <button type="button" class="btn ghost" id="copySeed">复制 seed</button>
+        </div>
+      </section>
+
+      <nav class="panel-tabs" data-shell="right" aria-label="右栏分区">
+        <button type="button" data-panel="queue" class="on">🕒 队列</button>
+        <button type="button" data-panel="gallery">🖼 画廊</button>
+        <button type="button" data-panel="stats">📊 统计</button>
+        <button type="button" data-panel="library">📚 词库</button>
+        <button type="button" data-panel="observe">🔭 观察</button>
+      </nav>
+
+      <section class="tab-panel" data-shell="right" data-panel="queue">
+      <section class="card">
+        <div class="card-head">
+          <div><p class="eyebrow">Queue</p><h2>任务队列</h2></div>
+          <span class="muted" id="queueCount">0 个进行中</span>
+        </div>
+        <div id="queue"></div>
+      </section>
+      </section>
+
+      <section class="tab-panel" data-shell="right" data-panel="gallery" hidden>
+      <section class="card">
+        <div class="card-head">
+          <div><p class="eyebrow">Gallery</p><h2>历史画廊</h2></div>
+          <div class="tabs" id="galleryFilter" role="tablist" aria-label="历史筛选">
+            <button type="button" data-filter="all" class="active" role="tab" aria-selected="true">全部</button>
+            <button type="button" data-filter="done" role="tab" aria-selected="false">已完成</button>
+            <button type="button" data-filter="other" role="tab" aria-selected="false">进行/失败</button>
+          </div>
+        </div>
+        <p class="muted">最多保留 <b id="historyLimit">60</b> 条；后端清理过的结果会标记「⌛ 已过期」。</p>
+        <div class="gallery" id="gallery"></div>
+        <div class="btn-row">
+          <button type="button" class="btn ghost tiny" id="clearHistory">清空本地历史</button>
+        </div>
+      </section>
+      </section>
+
+      <section class="tab-panel" data-shell="right" data-panel="stats" hidden>
+      <section class="card">
+        <div class="card-head">
+          <div><p class="eyebrow">Insights</p><h2>运行统计</h2></div>
+          <button type="button" class="btn ghost tiny" id="statsRefresh">刷新</button>
+        </div>
+        <div class="stat-grid" id="statGrid"></div>
+        <p class="muted">统计全部来自本地历史（localStorage），不上传任何数据。</p>
+      </section>
+      </section>
+
+      <section class="tab-panel" data-shell="right" data-panel="library" hidden>
+      <section class="card">
+        <div class="card-head">
+          <div><p class="eyebrow">Library</p><h2>词库 · 检索 · 收藏</h2></div>
+          <span class="muted" id="libCount"></span>
+        </div>
+        <div class="btn-row tight">
+          <button type="button" class="btn ghost tiny" id="libSave">★ 存入词库</button>
+          <button type="button" class="btn ghost tiny" id="libRandom">🎲 随机取用</button>
+        </div>
+        <h3>Prompt 词库</h3>
+        <div class="lib-list" id="libList"></div>
+        <h3>历史检索</h3>
+        <div class="toolbar">
+          <input type="search" id="histSearch" placeholder="搜索 prompt / seed / 采样器…" aria-label="搜索历史">
+          <select id="histSort" aria-label="排序">
+            <option value="new">最新优先</option>
+            <option value="old">最早优先</option>
+            <option value="seed">按 seed 排序</option>
+            <option value="fav">只看 ★ 收藏</option>
+          </select>
+        </div>
+        <div class="lib-list" id="histList"></div>
+      </section>
+      </section>
+
+      <section class="tab-panel" data-shell="right" data-panel="observe" hidden>
+      <section class="card">
+        <div class="card-head">
+          <div><p class="eyebrow">Observe</p><h2>运行状态与日志</h2></div>
+          <div class="btn-row tight">
+            <button type="button" class="btn ghost tiny" id="healthBtn">刷新</button>
+            <button type="button" class="btn ghost tiny" id="gcBtn" title="让后端立即回收显存与结果文件">♻ 触发回收</button>
+          </div>
+        </div>
+        <label class="toggle small"><input type="checkbox" id="gcUnload"> 同时卸载模型（下次生成会重新加载）</label>
+        <div class="kv-grid" id="healthGrid"></div>
+        <details>
+          <summary>展开请求 / 响应日志</summary>
+          <pre id="debug" class="debug">暂无日志</pre>
+          <button type="button" class="btn ghost tiny" id="copyLog">复制日志</button>
+        </details>
+      </section>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">Landscape·Art · 后端与权重都在你自己的机器上 · 按 <kbd>?</kbd> 查看快捷键</footer>
+</div>
+
+<!-- 灯箱（支持滚轮缩放 / 拖拽平移 / 双击放大） -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="图片全屏查看" aria-hidden="true">
+  <button type="button" class="lb-btn close" id="lbClose" aria-label="关闭">×</button>
+  <button type="button" class="lb-btn prev" id="lbPrev" aria-label="上一张">‹</button>
+  <div class="lb-stage" id="lbStage">
+    <img id="lbImage" alt="生成的风景图" draggable="false">
+    <span class="lb-zoom-badge" id="lbZoomLevel">100%</span>
+  </div>
+  <button type="button" class="lb-btn next" id="lbNext" aria-label="下一张">›</button>
+  <div class="lb-foot">
+    <span id="lbCaption"></span>
+    <div class="lb-zoom">
+      <button type="button" class="btn ghost tiny" id="lbZoomOut" title="缩小（-）">－</button>
+      <button type="button" class="btn ghost tiny" id="lbZoomIn" title="放大（+）">＋</button>
+      <button type="button" class="btn ghost tiny" id="lbZoomFit" title="适应窗口（0）">适应</button>
+      <button type="button" class="btn ghost tiny" id="lbZoomPixel" title="100% 原始像素（1）">1:1</button>
+      <button type="button" class="btn ghost tiny" id="lbRemix" title="以当前图为参考图，保留构图再创作">♻ Remix</button>
+    </div>
+    <a class="btn ghost tiny" id="lbDownload" download>下载</a>
+  </div>
+  <p class="lb-hint">滚轮缩放 · 拖拽平移 · 双击放大/还原 · <kbd>+</kbd>/<kbd>-</kbd> 缩放 · <kbd>0</kbd> 适应 · ← / → 换图 · Esc 关闭</p>
+</div>
+
+<!-- 快捷键 -->
+<div class="modal" id="helpModal" role="dialog" aria-modal="true" aria-label="快捷键" aria-hidden="true">
+  <div class="modal-box">
+    <h2>快捷键</h2>
+    <div class="shortcuts" id="shortcutList"></div>
+    <div class="btn-row"><button type="button" class="btn" data-close="helpModal">知道了</button></div>
+  </div>
+</div>
+
+<!-- 数据导入导出 -->
+<div class="modal" id="dataModal" role="dialog" aria-modal="true" aria-label="导入导出" aria-hidden="true">
+  <div class="modal-box">
+    <h2>历史与配方 · 导入 / 导出</h2>
+    <p class="muted">导出为 JSON 备份；粘贴 JSON 后点「导入」可合并到当前历史（按 job id 去重）。</p>
+    <textarea id="dataText" rows="10" spellcheck="false"></textarea>
+    <div class="btn-row">
+      <button type="button" class="btn" id="importBtn">导入</button>
+      <button type="button" class="btn ghost" id="downloadJson">下载 JSON</button>
+      <button type="button" class="btn ghost" data-close="dataModal">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 移动端：底部 Dock（生成）+ Tab（创作/画廊/灵感/统计）；桌面自动隐藏 -->
+<div class="mobile-dock" id="mobileDock">
+  <nav class="mobile-tabs" aria-label="移动端导航">
+    <a href="#stagePanel" class="on">🎨 创作</a>
+    <a href="#gallery">🖼 画廊</a>
+    <a href="#sceneSearch">🗺 灵感</a>
+    <a href="#statGrid">📊 统计</a>
+  </nav>
+  <button type="button" class="btn big" id="dockGenerate" aria-label="生成图像">
+    <span class="btn-label">✨ Generate</span>
+  </button>
+</div>
+
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>

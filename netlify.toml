@@ -1,0 +1,33 @@
+# Netlify 部署配置（纯静态前端 + Function 代理，无构建）
+[build]
+  publish = "site"            # 站点目录
+  functions = "netlify/functions"   # Netlify Functions 目录（代理）
+  command = ""
+
+# 安全响应头
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "no-referrer"
+    # 前端只访问同源代理；图片可能来自 blob:（大图分块拼装）。
+    # style-src 需要 'unsafe-inline'：进度条/对比滑块通过 style 属性设置百分比宽度。
+    Content-Security-Policy = "default-src 'self'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+# 静态模块与样式：内容变化时文件名不变，因此用短缓存 + 校验
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/styles.css"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# 图标类资源可以长期缓存
+[[headers]]
+  for = "/*.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Makoto Yuki">
+  <title>Makoto Yuki（风格化致敬）</title>
+  <desc>风格化同人致敬：P3R 结城理 / Makoto Yuki，版权属 ATLUS。静态版，用作网站图标。</desc>
+  <defs>
+    <linearGradient id="mk2-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6ea8ff"/><stop offset="1" stop-color="#5a46be"/>
+    </linearGradient>
+    <clipPath id="mk2-clip"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+  <g clip-path="url(#mk2-clip)">
+    <rect width="64" height="64" fill="url(#mk2-bg)"/>
+
+    <!-- 身体：深蓝制服 + 白衬衫 + 领带 -->
+    <path d="M21 36.5 L43 36.5 L47 58 L17 58 Z" fill="#222a4c"/>
+    <path d="M21 36.5 L43 36.5 L44 41 L20 41 Z" fill="#2e3860"/>
+    <path d="M27 36 L37 36 L32 45 Z" fill="#f1f5fc"/>
+    <path d="M30.6 40.2 L33.4 40.2 L34.2 53 L29.8 53 Z" fill="#9c3b47"/>
+    <path d="M25.6 35.6 L31.4 36.2 L28.4 41.6 Z" fill="#e7edf8"/>
+    <path d="M38.4 35.6 L32.6 36.2 L35.6 41.6 Z" fill="#e7edf8"/>
+    <rect x="29" y="32.5" width="6" height="5" rx="2" fill="#e2be9d"/>
+
+    <!-- 头 -->
+    <circle cx="32" cy="25" r="10.5" fill="#efd0b0"/>
+    <!-- 后发 -->
+    <path d="M20.5 27 C20.5 14 25 10 32 10 C39 10 43.5 14 43.5 27
+             C43.5 31.5 42.5 34.5 41 36.5 L38 34 C39.5 29.5 39.6 22 37.5 18.5
+             L26.5 18.5 C24.4 22 24.5 29.5 26 34 L23 36.5 C21.5 34.5 20.5 31.5 20.5 27 Z" fill="#1b2244"/>
+    <!-- 刘海（含遮住左眼的长刘海） -->
+    <path d="M21.5 24 L22.5 16.5 L26 12.5 L32 11.5 L38 12.5 L41.5 16.5 L42.5 24
+             L40.5 21 L38.5 24.5 L36.5 20.5 L34.5 24 L32 20.5 L29.5 24 L27 20.5 L25 24 L23.5 21 Z" fill="#26305c"/>
+    <path d="M21.8 22.5 L27.5 26 L26.5 33 L22.8 29.5 Z" fill="#26305c"/>
+
+    <!-- 可见的眼 -->
+    <ellipse cx="36.2" cy="25.6" rx="2" ry="1.5" fill="#f2f6ff"/>
+    <ellipse cx="36.5" cy="25.6" rx=".95" ry=".95" fill="#1d2544"/>
+    <ellipse cx="36.05" cy="25.15" rx=".3" ry=".3" fill="#ffffff"/>
+    <path d="M34 22.2 L36.2 21.9 L38.6 22.7" fill="none" stroke="#1b2244" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M31.8 30.2 L32.9 30.7 L34 30.2" fill="none" stroke="#b8795f" stroke-width=".9" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- 耳机 -->
+    <path d="M21 19.5 C22.5 12 41 12 42.5 19.5" fill="none" stroke="#2b3243" stroke-width="2.4" stroke-linecap="round"/>
+    <rect x="19.0" y="22.4" width="4.2" height="7.2" rx="2.1" fill="#2b3243"/>
+    <circle cx="21.1" cy="25.8" r="1.35" fill="#828ea4"/>
+    <rect x="40.8" y="22.4" width="4.2" height="7.2" rx="2.1" fill="#2b3243"/>
+    <circle cx="42.9" cy="25.8" r="1.35" fill="#828ea4"/>
+
+    <!-- 举起的右臂 + 召唤器（抵住太阳穴） -->
+    <path d="M41 38.5 L47 31 L47.5 25.5" fill="none" stroke="#1a2140" stroke-width="6.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M41 38.5 L47 31 L47.5 25.5" fill="none" stroke="#343e68" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="47.5" cy="24.5" r="2.1" fill="#efd0b0"/>
+    <path d="M42.5 18.6 L49.5 20.6 L48.6 23.6 L41.8 21.6 Z" fill="#3c4460"/>
+    <path d="M42.9 19.1 L46.2 20.1 L45.8 21.4 L42.5 20.4 Z" fill="#7886a6"/>
+    <rect x="48.4" y="21.4" width="2.6" height="4" rx="1" fill="#2f3549"/>
+  </g>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.4" fill="none"
+        stroke="#0b0e14" stroke-opacity=".25" stroke-width="1.5"/>
+</svg>

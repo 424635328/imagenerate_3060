@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Makoto Yuki thunder summon">
+  <title>雷霆·召唤 — Makoto Yuki 风格化致敬</title>
+  <desc>风格化同人致敬（P3R 结城理 / Makoto Yuki，版权属 ATLUS）：雷暴底 → 闪电 → 角色登场砸地 → 冲击波震屏 → 待机 → 举召唤器抵额 · 电弧与蓝焰爆发 → 蓝电消散出场 → 光带转场 → 黑场虹膜循环。</desc>
+  <defs>
+    <linearGradient id="mk-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d1230"/><stop offset=".5" stop-color="#1e2352"/><stop offset="1" stop-color="#3b2a6e"/>
+    </linearGradient>
+    <radialGradient id="mk-glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#bfe6ff" stop-opacity=".95"/>
+      <stop offset=".5" stop-color="#5f8dff" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#3a5cff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mk-streak" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".45" stop-color="#dff3ff" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="mk-clip"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+
+  <style>
+    .mk, .mk-hair, .mk-eye, .mk-arm, .ring, .streak, .iris, .bolt, .flash, .dark,
+    .arcs, .aura, .speed, .hero, .shake { transform-box: view-box; }
+    .hero  { transform-origin: 32px 34px; animation: mk-hero 7s cubic-bezier(.2,.7,.3,1) infinite; }
+    .shake { transform-origin: 32px 32px; animation: mk-shake 7s linear infinite; }
+    .mk    { transform-origin: 32px 44px; animation: mk-breathe 3s ease-in-out infinite; }
+    .mk-hair { transform-origin: 32px 20px; animation: mk-hair 3.4s ease-in-out infinite; }
+    .mk-eye  { transform-origin: 36.2px 25.6px; animation: mk-blink 3.6s ease-in-out infinite; }
+    .mk-arm  { transform-origin: 41px 40px; animation: mk-arm 7s ease-in-out infinite; }
+    .dark   { animation: mk-dark 7s linear infinite; }
+    .flash  { animation: mk-flash 7s linear infinite; }
+    .bolt   { animation: mk-bolt 7s linear infinite; }
+    .ring   { transform-origin: 32px 46px; animation: mk-ring 7s ease-out infinite; }
+    .arcs   { animation: mk-arcs 7s linear infinite; }
+    .aura   { transform-origin: 32px 32px; animation: mk-aura 7s ease-in-out infinite; }
+    .speed  { animation: mk-speed 7s linear infinite; }
+    .streak { animation: mk-streak 7s ease-in-out infinite; }
+    .iris   { transform-origin: 32px 32px; animation: mk-iris 7s ease-in-out infinite; }
+
+    @keyframes mk-hero {
+      0%, 7%    { transform: translate(6px,-48px) scale(2.6) rotate(-8deg); opacity: 0; }
+      10%       { transform: translate(2px,-22px) scale(1.75) rotate(-4deg); opacity: 1; }
+      13%       { transform: translate(0,2px)  scale(1.04) rotate(0deg); }
+      15%       { transform: translate(0,-1.5px) scale(.98); }
+      18%, 54%  { transform: translate(0,-1.5px) scale(1); opacity: 1; }
+      58%, 70%  { transform: translate(0,0) scale(1.05); }
+      74%       { transform: translate(0,-2px) scale(1); }
+      78%       { transform: translate(14px,-34px) scale(.44) rotate(12deg); opacity: 1; }
+      84%, 100% { transform: translate(34px,-70px) scale(.18) rotate(18deg); opacity: 0; }
+    }
+    @keyframes mk-shake {
+      0%, 11% { transform: translate(0,0); }
+      12%   { transform: translate(-.9px,.5px); } 13.5% { transform: translate(.8px,-.6px); }
+      15%   { transform: translate(-.6px,-.4px); } 16.5% { transform: translate(.5px,.5px); }
+      18%   { transform: translate(0,0); } 57% { transform: translate(0,0); }
+      58.5% { transform: translate(-.5px,.4px); } 60% { transform: translate(.6px,-.4px); }
+      61.5% { transform: translate(-.4px,.3px); } 63% { transform: translate(0,0); }
+      73%   { transform: translate(0,0); } 74.5% { transform: translate(.7px,-.5px); }
+      76%   { transform: translate(-.6px,.4px); } 77.5% { transform: translate(0,0); }
+      100%  { transform: translate(0,0); }
+    }
+    @keyframes mk-breathe { 0%,100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-1.1px) scaleY(1.012); } }
+    @keyframes mk-hair    { 0%,100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
+    @keyframes mk-blink   { 0%,91%,100% { transform: scaleY(1); } 94.5%,96% { transform: scaleY(.08); } }
+    @keyframes mk-arm {
+      0%, 30%   { transform: rotate(0deg); }      /* 待机：手臂自然下垂 */
+      45%       { transform: rotate(-10deg); }    /* 抬臂 */
+      54%, 68%  { transform: rotate(-26deg); }    /* 召唤器抵住太阳穴 */
+      78%       { transform: rotate(-14deg); }
+      86%, 100% { transform: rotate(0deg); }
+    }
+    @keyframes mk-dark  { 0%{opacity:.85} 4%{opacity:.2} 7%{opacity:.78} 10%{opacity:.25} 14%{opacity:.6}
+                          20%{opacity:.08} 30%{opacity:0} 70%{opacity:0} 76%{opacity:.3} 82%{opacity:.08}
+                          90%{opacity:.7} 100%{opacity:.85} }
+    @keyframes mk-flash { 0%,2%{opacity:0} 3.5%{opacity:.95} 5%{opacity:0} 7%{opacity:.55} 9%{opacity:0}
+                          52%{opacity:0} 55%{opacity:.85} 58%{opacity:0} 84%{opacity:0} 86%{opacity:.9} 88%{opacity:0} 100%{opacity:0} }
+    @keyframes mk-bolt  { 0%,2%{opacity:0} 3%{opacity:1} 4.5%{opacity:.1} 6%{opacity:.9} 9%{opacity:0}
+                          50%{opacity:0} 53%{opacity:1} 56%{opacity:.2} 59%{opacity:.9} 62%{opacity:0}
+                          85%{opacity:0} 86.5%{opacity:1} 88%{opacity:0} 100%{opacity:0} }
+    @keyframes mk-ring  { 0%,11%{transform:scale(.15); opacity:0} 13%{transform:scale(.3); opacity:.95}
+                          22%{transform:scale(2.1); opacity:0} 72%{transform:scale(.2); opacity:0}
+                          74%{transform:scale(.4); opacity:.9} 84%{transform:scale(2.4); opacity:0} 100%{opacity:0} }
+    @keyframes mk-arcs  { 0%,44%{opacity:0} 47%{opacity:1} 49%{opacity:.15} 51%{opacity:.95} 53%{opacity:.2}
+                          55%{opacity:1} 58%{opacity:.35} 62%{opacity:.9} 66%{opacity:.2} 70%{opacity:0} 100%{opacity:0} }
+    @keyframes mk-aura  { 0%,13%{transform:scale(.5); opacity:0} 16%{transform:scale(1); opacity:.45}
+                          30%{transform:scale(1.1); opacity:.3} 44%{transform:scale(1); opacity:.25}
+                          52%{transform:scale(1.4); opacity:1} 60%{transform:scale(1.55); opacity:.9}
+                          68%{transform:scale(1.25); opacity:.6} 76%{transform:scale(1.05); opacity:.4}
+                          82%{transform:scale(.6); opacity:0} 100%{opacity:0} }
+    @keyframes mk-speed { 0%,8%{opacity:0} 10%{opacity:.9} 16%{opacity:0} 70%{opacity:0} 74%{opacity:.85}
+                          82%{opacity:0} 100%{opacity:0} }
+    @keyframes mk-streak{ 0%,84%{transform:translateX(-46px); opacity:0} 86%{opacity:1}
+                          92%{transform:translateX(46px); opacity:0} 100%{opacity:0} }
+    @keyframes mk-iris  { 0%,88%{transform:scale(0); opacity:0} 93%{transform:scale(2.6); opacity:1}
+                          96%{transform:scale(2.6); opacity:1} 100%{transform:scale(0); opacity:0} }
+
+    @media (prefers-reduced-motion: reduce) {
+      .hero,.shake,.mk,.mk-hair,.mk-eye,.mk-arm,.dark,.flash,.bolt,.ring,.arcs,.aura,.speed,.streak,.iris { animation: none; }
+      .dark{opacity:0} .flash,.bolt,.speed,.streak,.iris{opacity:0} .aura{opacity:.3} .arcs{opacity:.25}
+    }
+  </style>
+
+  <g clip-path="url(#mk-clip)">
+    <rect width="64" height="64" fill="url(#mk-sky)"/>
+    <g opacity=".55" fill="#080c22">
+      <ellipse cx="14" cy="9" rx="16" ry="7"/><ellipse cx="40" cy="6" rx="18" ry="6.5"/>
+      <ellipse cx="56" cy="13" rx="14" ry="6"/><ellipse cx="26" cy="14" rx="13" ry="5"/>
+    </g>
+
+    <g class="shake">
+      <!-- 闪电 -->
+      <g class="bolt" fill="none" stroke-linejoin="round">
+        <path d="M33 1 L25 21 L31 21 L22 42" stroke="#dff3ff" stroke-width="3.4" opacity=".35"/>
+        <path d="M33 1 L25 21 L31 21 L22 42" stroke="#ffffff" stroke-width="1.5"/>
+        <path d="M47 3 L43 16 L47 16 L42 30" stroke="#dff3ff" stroke-width="2.2" opacity=".3"/>
+        <path d="M47 3 L43 16 L47 16 L42 30" stroke="#ffffff" stroke-width="1"/>
+      </g>
+
+      <!-- 高速线 -->
+      <g class="speed" stroke="#eaf6ff" stroke-width="1.1" stroke-linecap="round" opacity=".9">
+        <path d="M17 3 L17 15"/><path d="M25 -1 L25 11"/><path d="M39 1 L39 13"/><path d="M47 5 L47 17"/>
+      </g>
+
+      <!-- 冲击波 -->
+      <circle class="ring" cx="32" cy="46" r="18" fill="none" stroke="#bfe6ff" stroke-width="1.6" opacity="0"/>
+
+      <!-- 角色 -->
+      <g class="hero">
+        <circle class="aura" cx="32" cy="32" r="23" fill="url(#mk-glow)" opacity="0"/>
+
+        <g class="mk">
+          <!-- 身体：深蓝制服 + 白衬衫 + 领带 -->
+          <path d="M21 36.5 L43 36.5 L47 58 L17 58 Z" fill="#222a4c"/>
+          <path d="M21 36.5 L43 36.5 L44 41 L20 41 Z" fill="#2e3860"/>
+          <path d="M27 36 L37 36 L32 45 Z" fill="#f1f5fc"/>
+          <path d="M30.6 40.2 L33.4 40.2 L34.2 53 L29.8 53 Z" fill="#9c3b47"/>
+          <path d="M25.6 35.6 L31.4 36.2 L28.4 41.6 Z" fill="#e7edf8"/>
+          <path d="M38.4 35.6 L32.6 36.2 L35.6 41.6 Z" fill="#e7edf8"/>
+          <rect x="29" y="32.5" width="6" height="5" rx="2" fill="#e2be9d"/>
+
+          <!-- 头 -->
+          <circle cx="32" cy="25" r="10.5" fill="#efd0b0"/>
+          <!-- 后发 -->
+          <path d="M20.5 27 C20.5 14 25 10 32 10 C39 10 43.5 14 43.5 27
+                   C43.5 31.5 42.5 34.5 41 36.5 L38 34 C39.5 29.5 39.6 22 37.5 18.5
+                   L26.5 18.5 C24.4 22 24.5 29.5 26 34 L23 36.5 C21.5 34.5 20.5 31.5 20.5 27 Z" fill="#1b2244"/>
+          <!-- 刘海（含遮住左眼的长刘海） -->
+          <g class="mk-hair" fill="#26305c">
+            <path d="M21.5 24 L22.5 16.5 L26 12.5 L32 11.5 L38 12.5 L41.5 16.5 L42.5 24
+                     L40.5 21 L38.5 24.5 L36.5 20.5 L34.5 24 L32 20.5 L29.5 24 L27 20.5 L25 24 L23.5 21 Z"/>
+            <path d="M21.8 22.5 L27.5 26 L26.5 33 L22.8 29.5 Z"/>
+          </g>
+          <!-- 可见的眼 -->
+          <g class="mk-eye">
+            <ellipse cx="36.2" cy="25.6" rx="2" ry="1.5" fill="#f2f6ff"/>
+            <ellipse cx="36.5" cy="25.6" rx=".95" ry=".95" fill="#1d2544"/>
+            <ellipse cx="36.05" cy="25.15" rx=".3" ry=".3" fill="#ffffff"/>
+            <path d="M34 22.2 L36.2 21.9 L38.6 22.7" fill="none" stroke="#1b2244" stroke-width="1.05"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+          <!-- 嘴 -->
+          <path d="M31.8 30.2 L32.9 30.7 L34 30.2" fill="none" stroke="#b8795f" stroke-width=".9"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- 耳机 -->
+          <path d="M21 19.5 C22.5 12 41 12 42.5 19.5" fill="none" stroke="#2b3243" stroke-width="2.4" stroke-linecap="round"/>
+          <rect x="19.0" y="22.4" width="4.2" height="7.2" rx="2.1" fill="#2b3243"/>
+          <circle cx="21.1" cy="25.8" r="1.35" fill="#828ea4"/>
+          <rect x="40.8" y="22.4" width="4.2" height="7.2" rx="2.1" fill="#2b3243"/>
+          <circle cx="42.9" cy="25.8" r="1.35" fill="#828ea4"/>
+
+          <!-- 举起的右臂 + 召唤器（抵住太阳穴） -->
+          <g class="mk-arm">
+            <path d="M41 38.5 L47 31 L47.5 25.5" fill="none" stroke="#1a2140" stroke-width="6.2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M41 38.5 L47 31 L47.5 25.5" fill="none" stroke="#343e68" stroke-width="4.4"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="47.5" cy="24.5" r="2.1" fill="#efd0b0"/>
+            <path d="M42.5 18.6 L49.5 20.6 L48.6 23.6 L41.8 21.6 Z" fill="#3c4460"/>
+            <path d="M42.9 19.1 L46.2 20.1 L45.8 21.4 L42.5 20.4 Z" fill="#7886a6"/>
+            <rect x="48.4" y="21.4" width="2.6" height="4" rx="1" fill="#2f3549"/>
+          </g>
+        </g>
+
+        <!-- 电弧（召唤时爆发） -->
+        <g class="arcs" stroke="#a8ecff" stroke-width="1.25" fill="none" stroke-linecap="round" opacity="0">
+          <path d="M12 24 L17 28 L13 31 L19 35"/>
+          <path d="M52 36 L47 40 L53 43"/>
+          <path d="M22 9 L26 13 L21 16"/>
+          <path d="M45 18 L49 21 L45 24"/>
+          <path d="M16 44 L20 47 L15 50"/>
+        </g>
+      </g>
+
+      <!-- 转场光带 -->
+      <rect class="streak" x="-46" y="-24" width="26" height="112" fill="url(#mk-streak)" transform="rotate(18 32 32)"/>
+    </g>
+
+    <rect class="dark" width="64" height="64" fill="#04060f"/>
+    <rect class="flash" width="64" height="64" fill="#dff1ff" opacity="0"/>
+    <circle class="iris" cx="32" cy="32" r="30" fill="#04060f" opacity="0"/>
+  </g>
+
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.4" fill="none"
+        stroke="#0b0e14" stroke-opacity=".3" stroke-width="1.5"/>
+</svg>
