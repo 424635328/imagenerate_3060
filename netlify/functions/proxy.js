@@ -73,7 +73,9 @@ exports.handler = async (event) => {
 
     if (STATE_CHANGING.has(op) && originVerdict(event) === "block") {
       return json(403, { error: "origin not allowed",
-        hint: "add this origin to ALLOWED_ORIGINS, or call without an Origin header" });
+        hint: PROXY_STRICT
+          ? "PROXY_STRICT=1: only same-site browser requests are accepted; scripts should call the backend directly"
+          : "add this origin to ALLOWED_ORIGINS, or call without an Origin header" });
     }
 
     // Final image (immutable) and in-progress preview (never cached).

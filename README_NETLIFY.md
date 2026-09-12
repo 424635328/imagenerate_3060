@@ -247,6 +247,39 @@ npx --yes netlify-cli@latest deploy --dir site --prod `
    已部署的站点不受影响。
 5. 后端只应监听 `127.0.0.1`（默认），由隧道对外；**不要**直接把 `HOST` 改成 `0.0.0.0` 暴露到局域网/公网。
 
+### 10.1 代理来源守卫（已内置）
+
+`netlify/functions/proxy.js` 对**会消耗 GPU 的操作**（`generate` / `warmup` / `gc` / `cancel`）做来源校验：
+只有本站、`*.netlify.app`、`localhost` 或 `ALLOWED_ORIGINS` 中列出的来源可以触发；
+跨站页面发起的 POST 一律 **403 `origin not allowed`**。只读操作（`health` / `job` / `image` / `chunk`）
+不做来源限制，因为 `<img>` 请求不带 `Origin`。
+
+| 环境变量 | 取值 | 效果 |
+|---|---|---|
+| `ALLOWED_ORIGINS` | 逗号分隔，如 `https://art.example.com` | 追加白名单（自定义域名必填） |
+| `PROXY_STRICT` | `1` | 连**不带 Origin 的脚本调用**也拒绝（最严；本机脚本请直连 `127.0.0.1:8001`） |
+
+### 10.2 轮换 `API_TOKEN`（含两个坑）
+
+```powershell
+# ① 生成强随机串（48 hex ≈ 192 bit）
+python -c "import secrets; print(secrets.token_hex(24))"
+
+# ② 写入 Netlify 站点环境变量
+#    坑 1：netlify env:set 对已存在的 API_TOKEN 可能静默不生效（返回 0 但值不变）
+#          → 用 API 写入并回读确认：
+$aid = (Invoke-RestMethod https://api.netlify.com/api/v1/accounts -Headers @{Authorization="Bearer $env:NETLIFY_AUTH_TOKEN"})[0].id
+$body = @(@{key='API_TOKEN'; values=@(@{context='all'; value='<新令牌>'})}) | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Method Put -Uri "https://api.netlify.com/api/v1/accounts/$aid/env/API_TOKEN?site_id=<SITE_ID>" `
+  -Headers @{Authorization="Bearer $env:NETLIFY_AUTH_TOKEN"; 'Content-Type'='application/json'} -Body $body
+
+# ③ 坑 2：环境变量改动必须**重新部署**才对线上 Function 生效
+npx --yes netlify-cli@latest deploy --dir site --prod --site <SITE_ID> --auth $env:NETLIFY_AUTH_TOKEN
+```
+
+最后用后端启动命令带上同一串（`$env:API_TOKEN='<新令牌>'`），两侧一致才算完成。
+验证：跨站 POST 应 403，本站来源 POST 应能到达后端（后端未启动时会看到 ngrok 502/404）。
+
 ---
 
 ## 11. 排错手册
