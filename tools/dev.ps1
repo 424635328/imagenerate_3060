@@ -111,6 +111,10 @@ switch ($Task) {
     & $Python tools\test_adapter_routing.py
     if ($LASTEXITCODE -eq 0) { Ok 'adapter routing' } else { $fail++ }
 
+    Say '版本台账（不变式 / 翻指针 / 归档 / 哈希校验，临时目录演练）'
+    & $Python tools\test_registry.py
+    if ($LASTEXITCODE -eq 0) { Ok 'registry' } else { $fail++ }
+
     Say '路径与敏感串'
     & $Python tools\check_paths.py
     if ($LASTEXITCODE -eq 0) { Ok 'paths' } else { $fail++ }

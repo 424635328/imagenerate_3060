@@ -1,0 +1,304 @@
+{
+ "schema": 1,
+ "channels": {
+  "default": "v5b",
+  "previous": "v4",
+  "staging": null
+ },
+ "versions": {
+  "v4": {
+   "label": "V4 基线",
+   "slogan": "部署基线（抗过拟合倍增）",
+   "note": "当前线上基线；固定协议 val 0.186437、留出集 KID 最低 0.000359。",
+   "state": "superseded",
+   "arch": "sd15",
+   "adapter": {
+    "dir": "v4_640/adapter_best",
+    "sha256": "878d96086513a93232f770fa03c9aed7985f91d74de94624c2645e8de9e1b043",
+    "bytes": 51060600,
+    "text_encoder": {
+     "file": "adapter_best_text_encoder.pt",
+     "sha256": "8aa0c544da4fa487b52088386ae30fee2a627ac0a0cc30aa51cfbe6215d1fd19",
+     "bytes": 246196474
+    }
+   },
+   "recipe": {},
+   "eval": {
+    "val_mse": 0.186437,
+    "val_samples": 144,
+    "kid": 0.000359,
+    "kid_std": 3.5e-05,
+    "clip_fid": 0.4646,
+    "clip_score": 0.2716,
+    "sharpness": 697.96,
+    "text_encoder": "fine-tuned",
+    "human": {
+     "decided": 48,
+     "wins": 14,
+     "rate": 0.2917,
+     "ci": [
+      0.1824,
+      0.4318
+     ],
+     "verdict": "无法区分",
+     "source": "docs/HUMAN_VERDICT.md"
+    },
+    "recorded_at": "2026-09-14T15:33:56+00:00"
+   },
+   "created_at": null,
+   "promoted_at": "2026-09-14T15:40:02+00:00",
+   "needs_review": false
+  },
+  "v5": {
+   "label": "V5",
+   "slogan": "min-SNR-γ + Prodigy",
+   "note": "只改优化器与损失加权；文本编码器未微调。val 0.185891，KID 0.000404。",
+   "state": "candidate",
+   "arch": "sd15",
+   "adapter": {
+    "dir": "v5_lora/adapter_best",
+    "sha256": "88c3e8395701a89cb82af21dfe9ddd046d20f4b000deda4f1c19694089d665a8",
+    "bytes": 51060600,
+    "text_encoder": null
+   },
+   "recipe": {},
+   "eval": {
+    "val_mse": 0.185891,
+    "val_samples": 144,
+    "kid": 0.000404,
+    "kid_std": 3.6e-05,
+    "clip_fid": 0.4848,
+    "clip_score": 0.2726,
+    "sharpness": 632.49,
+    "text_encoder": "base",
+    "human": {
+     "decided": 48,
+     "wins": 15,
+     "rate": 0.3125,
+     "ci": [
+      0.1995,
+      0.4533
+     ],
+     "verdict": "无法区分",
+     "source": "docs/HUMAN_VERDICT.md"
+    },
+    "recorded_at": "2026-09-14T15:33:57+00:00"
+   },
+   "created_at": null,
+   "promoted_at": null,
+   "needs_review": false
+  },
+  "v5b": {
+   "label": "V5b",
+   "slogan": "V5 + 微调 CLIP",
+   "note": "固定协议 val 最低 0.185834、KID 0.000377；text encoder 真的被微调过。",
+   "state": "promoted",
+   "arch": "sd15",
+   "adapter": {
+    "dir": "v5b_lora/adapter_best",
+    "sha256": "85f184c44db7eeee9f750d58bbd11086845e62182d8e2123e13bf80b3c5e8fe4",
+    "bytes": 51060600,
+    "text_encoder": {
+     "file": "adapter_best_text_encoder.pt",
+     "sha256": "c9b75e60fec71228d2e897545a8665c5ed79637c3d64445d14c983a98b8eb05b",
+     "bytes": 492317434
+    }
+   },
+   "recipe": {},
+   "eval": {
+    "val_mse": 0.185834,
+    "val_samples": 144,
+    "kid": 0.000377,
+    "kid_std": 3.5e-05,
+    "clip_fid": 0.4649,
+    "clip_score": 0.272,
+    "sharpness": 708.08,
+    "text_encoder": "fine-tuned",
+    "human": {
+     "decided": 48,
+     "wins": 7,
+     "rate": 0.1458,
+     "ci": [
+      0.0725,
+      0.2717
+     ],
+     "verdict": "无法区分",
+     "source": "docs/HUMAN_VERDICT.md"
+    },
+    "recorded_at": "2026-09-14T15:34:12+00:00"
+   },
+   "created_at": null,
+   "promoted_at": "2026-09-14T15:40:04+00:00",
+   "needs_review": false
+  },
+  "v6q": {
+   "label": "V6q",
+   "slogan": "Qwen2-VL 重写 caption",
+   "note": "最后训练的版本；conditioning 不同 ⇒ val 与其它候选不可比，KID 0.000396。",
+   "state": "candidate",
+   "arch": "sd15",
+   "adapter": {
+    "dir": "v6_qwen/adapter_best",
+    "sha256": "ff94807b748d272634a5e304ba507e973110e905d6a1a2dbff0b9914d830bce0",
+    "bytes": 51060600,
+    "text_encoder": null
+   },
+   "recipe": {},
+   "eval": {
+    "kid": 0.000396,
+    "kid_std": 3.6e-05,
+    "clip_fid": 0.4722,
+    "clip_score": 0.2719,
+    "sharpness": 742.11,
+    "text_encoder": "base",
+    "human": {
+     "decided": 48,
+     "wins": 12,
+     "rate": 0.25,
+     "ci": [
+      0.1492,
+      0.3878
+     ],
+     "verdict": "无法区分",
+     "source": "docs/HUMAN_VERDICT.md"
+    },
+    "recorded_at": "2026-09-14T15:34:13+00:00"
+   },
+   "created_at": null,
+   "promoted_at": null,
+   "needs_review": false
+  },
+  "merge-v4v5-dare": {
+   "label": "融合 V4⊕V5 DARE-TIES",
+   "slogan": "随机丢弃再裁剪",
+   "note": "val 0.186041。",
+   "state": "candidate",
+   "arch": "sd15",
+   "adapter": {
+    "dir": "merged/dare_ties_0.50_0.50",
+    "sha256": "7f5acd911ef0df7e2d6ab2a690ea32a195c572ac9eb457b40a854329a372a5f6",
+    "bytes": 51060568,
+    "text_encoder": null
+   },
+   "recipe": {},
+   "eval": {
+    "val_mse": 0.186041,
+    "val_samples": 144,
+    "recorded_at": "2026-09-14T15:34:25+00:00"
+   },
+   "created_at": null,
+   "promoted_at": null,
+   "needs_review": false
+  },
+  "merge-v4v5-linear": {
+   "label": "融合 V4⊕V5 线性",
+   "slogan": "免训练权重平均",
+   "note": "UNet 增量 0.5/0.5 线性融合，val 0.185969。",
+   "state": "candidate",
+   "arch": "sd15",
+   "adapter": {
+    "dir": "merged/linear_0.50_0.50",
+    "sha256": "57d55e8e80461d04a306e68ff33fe45f338c59cc8a23e7532d1f3b4b9e0136f0",
+    "bytes": 51060568,
+    "text_encoder": null
+   },
+   "recipe": {},
+   "eval": {
+    "val_mse": 0.185969,
+    "val_samples": 144,
+    "recorded_at": "2026-09-14T15:34:24+00:00"
+   },
+   "created_at": null,
+   "promoted_at": null,
+   "needs_review": false
+  },
+  "merge-v4v5-slerp": {
+   "label": "融合 V4⊕V5 SLERP",
+   "slogan": "球面插值",
+   "note": "val 0.185901。",
+   "state": "candidate",
+   "arch": "sd15",
+   "adapter": {
+    "dir": "merged/slerp_0.50_0.50",
+    "sha256": "adca6a588a7acfbbf92ddd22bac0c9b3d8644fe12bffa25b664e4d0dc93dafaa",
+    "bytes": 51060568,
+    "text_encoder": null
+   },
+   "recipe": {},
+   "eval": {
+    "val_mse": 0.185901,
+    "val_samples": 144,
+    "recorded_at": "2026-09-14T15:34:24+00:00"
+   },
+   "created_at": null,
+   "promoted_at": null,
+   "needs_review": false
+  },
+  "merge-v4v5-ties": {
+   "label": "融合 V4⊕V5 TIES",
+   "slogan": "符号一致裁剪",
+   "note": "val 0.186027。",
+   "state": "candidate",
+   "arch": "sd15",
+   "adapter": {
+    "dir": "merged/ties_0.50_0.50",
+    "sha256": "5af229559d17ed784ff547607cc7aa1b0aa7498f29f41fbd662c4c01517a4df5",
+    "bytes": 51060568,
+    "text_encoder": null
+   },
+   "recipe": {},
+   "eval": {
+    "val_mse": 0.186027,
+    "val_samples": 144,
+    "recorded_at": "2026-09-14T15:34:24+00:00"
+   },
+   "created_at": null,
+   "promoted_at": null,
+   "needs_review": false
+  },
+  "merge-v4v5b-linear": {
+   "label": "融合 V4⊕V5b 线性",
+   "slogan": "免训练权重平均",
+   "note": "val 0.185963。",
+   "state": "candidate",
+   "arch": "sd15",
+   "adapter": {
+    "dir": "merged_v4v5b/linear_0.50_0.50",
+    "sha256": "1a80afc18cefe0a0b7300d7add2036382b9a754efe5a027ba01a5fb71fb9e685",
+    "bytes": 51060568,
+    "text_encoder": null
+   },
+   "recipe": {},
+   "eval": {
+    "val_mse": 0.185963,
+    "val_samples": 144,
+    "recorded_at": "2026-09-14T15:34:25+00:00"
+   },
+   "created_at": null,
+   "promoted_at": null,
+   "needs_review": false
+  },
+  "merge-v4v5b-slerp": {
+   "label": "融合 V4⊕V5b SLERP",
+   "slogan": "球面插值",
+   "note": "val 0.185939。",
+   "state": "candidate",
+   "arch": "sd15",
+   "adapter": {
+    "dir": "merged_v4v5b/slerp_0.50_0.50",
+    "sha256": "ab72d3aeaeb3ce484e2a673d5fa766c32c9a982fc62fb7e0d24722eacdce5446",
+    "bytes": 51060568,
+    "text_encoder": null
+   },
+   "recipe": {},
+   "eval": {
+    "val_mse": 0.185939,
+    "val_samples": 144,
+    "recorded_at": "2026-09-14T15:34:25+00:00"
+   },
+   "created_at": null,
+   "promoted_at": null,
+   "needs_review": false
+  }
+ }
+}

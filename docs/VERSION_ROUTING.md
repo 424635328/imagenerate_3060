@@ -1,8 +1,18 @@
 # 版本路由与归档架构（设计稿）
 
 > 目标：**下一版新模型能快速、可回滚地上线；旧版本能安全归档，且不破坏历史与证据。**
-> 现状基线：已实现"请求级选版本"（`config.ADAPTER_CHOICES` + `GET /models` + 前端下拉 +
-> 管线/结果缓存按版本隔离 + 真机像素验证）。本文件设计的是**从"改代码上线"到"翻指针上线"**那一步。
+> 现状基线：**P1 + P2 已实施** —— 请求级选版本 + 台账（`registry/versions.json`）+ 翻指针热路由。
+>
+> | 阶段 | 状态 | 落点 |
+> |---|---|---|
+> | P1 请求级选版本 | ✅ | `config` 白名单 + `GET /models` + 前端下拉 + 管线/结果缓存按版本隔离 |
+> | P2 台账与热路由 | ✅ | `registry/versions.json` + `tools/registry.py`（scan/eval/channel/validate/show）+ mtime 热重载 + 加载前哈希校验 |
+> | P3 上线/归档动作 | ⏳ | `tools/promote.py`（预检+冒烟+预热）、`tools/archive_version.py`（墓碑+冷存） |
+> | P4 前端状态与追溯 | ⏳ | 下拉分组（默认/候选/已归档灰显）、历史版本徽标 |
+>
+> 落地位置与设计稿的差异（已生效）：台账放在**受版本控制的 `registry/versions.json`**，
+> 而不是 `models/registry.json` —— 因为 `models/` 被 `.gitignore` 排除，台账必须能跨克隆存活。
+> 可用环境变量 `VERSION_REGISTRY` 覆盖。台账里只有相对路径与哈希，不含机器绝对路径。
 
 ---
 
@@ -165,3 +175,35 @@ python tools/archive_version.py <id>          # 归档：墓碑 + 冷存 + 前�
    保留 default + previous + 最近 2 个候选 ≈ 1.5 GB 常驻，其余冷存。
 5. **别把"新"当"好"**：promote 需要 `--ack-indistinguishable`。这是产品原则，
    不是流程装饰 —— 本项目的四条机器判据 + 48 题人工盲测都指向"无法区分"。
+
+---
+
+## 7. 实施记录
+
+### P1（2026-09-15，已完成）
+
+请求级选版本：白名单 + `/models` + 前端下拉 + 管线缓存键 `(fast, sampler, adapter)` +
+结果缓存指纹含版本；真机验证 v4 vs v5b **平均像素差 28.83/255**（不是 no-op）。
+
+### P2（2026-09-15，已完成）
+
+- **台账**：`registry/versions.json` —— 10 个版本，每条含 label/slogan/note/state/arch/
+  `adapter.{dir,sha256,bytes,text_encoder}`/recipe/eval/时间戳；`channels = {default, previous, staging}`。
+- **`tools/registry.py`**：`scan`（扫盘重建、保留状态与评测、报告哈希变化与新增/移除）、
+  `eval <id>`（把 val/KID/CLIP/人工判据写进台账，直接复用现有评测产物）、
+  `channel set <name> <id>`（**上线与回滚就是这一步**；切 default 时旧 default 自动变 previous）、
+  `validate`、`show`。
+- **热路由**：`config.load_registry()` 按 mtime 重载 ⇒ CLI 翻指针后 `/models` 与 `/health`
+  **立即反映，无需重启进程**（已实测：v5b → v4 → v5b，服务端未重启）。
+- **加载前哈希校验**：`app._build_pipe()` 在加载前调用 `config.verify_adapter_path()`，
+  与台账不符即**拒绝加载**（未登记路径会明确标注"跳过校验"，不假装验过）。
+- **`/models`** 新增 `state` / `sha256` / `verified` / `eval` / `needs_review`；
+  **`/health`** 新增 `registry{default, previous, versions, default_verified}`；
+  前端对 `archived` 或校验失败的版本**置灰不可选**，并在 title 里说明原因。
+- **门禁**：`tools/test_registry.py`（23 项，临时目录 + 伪造小权重演练）——
+  扫描收敛、翻指针与自动 previous、哈希篡改被 validate 拒绝、previous 被归档被拒、
+  归档版本不能进通道、目录被删后指针自动摘除、未登记版本标 `needs_review`（不猜标签）、
+  台账缺失时按盘重建并告警。`dev.ps1 check` 现为 **15 道**。
+- 一处设计修正：把"promoted 必须已有评测"从**硬不变式降级为提示**。它是上线时的规则
+  （P3 的 `promote.py` 用 `--ack-indistinguishable` 强制），不该让日常 `scan` 变成失败 ——
+  否则新建台账的第一步就会红。

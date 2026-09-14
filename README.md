@@ -933,9 +933,23 @@ UTF-8（`errors="replace"`），并且日志函数本身兜底 —— 日志永�
 ### 21.3 下一版新模型怎么快速上线、旧版本怎么归档
 
 架构设计见 **[`docs/VERSION_ROUTING.md`](docs/VERSION_ROUTING.md)**：核心是把"版本"从代码搬进
-**台账 `models/registry.json`**，上线动作变成**翻指针 + 预热**（不是改代码 + 重启），
-归档变成**墓碑**（权重移走、台账留 hash，历史照常可追溯），并且 `promote` 需要
-`--ack-indistinguishable` 才允许在"无显著优势"时上线。分 P2/P3/P4 三阶段，每阶段独立可交付。
+**台账**，上线动作变成**翻指针 + 预热**（不是改代码 + 重启），归档变成**墓碑**（权重移走、
+台账留 hash，历史照常可追溯），并且 promote 需要 `--ack-indistinguishable` 才允许在
+"无显著优势"时上线。**P1（请求级选版本）与 P2（台账 + 热路由）已实施**，P3/P4 待做。
+
+**P2 已落地的部分**：
+
+| 组件 | 作用 |
+|---|---|
+| `registry/versions.json` | 台账（受版本控制；`models/` 被 gitignore，台账必须能跨克隆存活）——10 个版本的状态、权重 sha256、TE、配方、评测、时间戳与 `channels{default,previous,staging}` |
+| `tools/registry.py` | `scan` 扫盘重建 / `eval <id>` 写入评测 / **`channel set default <id>` 就是上线** / `validate` / `show` |
+| 热路由 | `config.load_registry()` 按 mtime 重载 ⇒ 翻指针后 `/models`、`/health` **立即变化，无需重启**（实测 v5b→v4→v5b） |
+| 加载前校验 | `app._build_pipe()` 调 `config.verify_adapter_path()`：与台账哈希不符**拒绝加载**（宁可报错，也不用错权重） |
+| `/models`、`/health` | 暴露 `state`/`sha256`/`verified`/`eval`/`needs_review` 与 `registry{default,previous,default_verified}` |
+| 前端 | 已归档或校验失败的版本**置灰不可选**并说明原因 |
+
+`tools/test_registry.py`（23 项，临时目录 + 伪造小权重演练四条不变式与 scan/channel/归档边界）；
+`dev.ps1 check` 现为 **15 道**。
 
 ### 21.4 门禁
 

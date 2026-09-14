@@ -36,15 +36,23 @@ export function renderModels(list, current, serverDefault) {
   const previous = current ?? select.value ?? '';
   const options = list.map((item) => {
     const badge = item.text_encoder ? ' · TE 微调' : '';
-    return `<option value="${item.id}" title="${item.slogan}${badge}：${item.note}">`
-      + `${item.label}${item.default ? '（服务端默认）' : ''}</option>`;
+    // 已归档 / 哈希不符的版本不给选（选了也会在服务端被拒，不如在这里就说清楚）
+    const blocked = item.state === 'archived' || item.verified === false;
+    const suffix = item.state === 'archived' ? '（已归档）'
+      : item.verified === false ? '（校验未通过）' : item.default ? '（服务端默认）' : '';
+    const hint = item.state === 'archived'
+      ? '该版本已归档：权重已移出 models/，需要先 restore 才能再出图'
+      : item.verified === false ? `权重校验失败：${item.verify_note || '与台账不符'}`
+        : `${item.slogan}${badge}：${item.note}`;
+    return `<option value="${item.id}" title="${hint}"${blocked ? ' disabled' : ''}>`
+      + `${item.label}${suffix}</option>`;
   }).join('');
   const fallback = list.find((m) => m.id === serverDefault);
   select.innerHTML = `<option value="">（跟随服务端默认${fallback ? `：${fallback.label}` : ''}）</option>`
     + options;
-  // 用户没选过就落在服务端默认版本上（"最新用哪个"由后端 DEFAULT_ADAPTER 决定）
+  // 用户没选过就落在服务端默认版本上（"最新用哪个"由台账 channels.default 决定）
   const keep = previous || serverDefault || '';
-  select.value = [...select.options].some((node) => node.value === keep) ? keep : '';
+  select.value = [...select.options].some((node) => node.value === keep && !node.disabled) ? keep : '';
   const picked = list.find((m) => m.id === select.value) || fallback;
   select.title = picked ? `${picked.label} · ${picked.slogan}\n${picked.note}` : '';
   const label = select.closest('.field')?.querySelector('label');

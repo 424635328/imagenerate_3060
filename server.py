@@ -42,10 +42,12 @@ from config import (
     clamp_steps, clamp_strength, ensure_runtime_dirs, output_mime, output_suffix,
 )
 # 模型版本白名单走 config（唯一入口）
-from config import DEFAULT_ADAPTER as _DEFAULT_ADAPTER
 from config import adapter_catalogue as _adapter_catalogue
 from config import adapter_dir as config_resolve_adapter
 from config import adapter_slugs as _adapter_slugs
+from config import default_adapter as _default_adapter
+from config import previous_adapter as _previous_adapter
+from config import verify_adapter as _config_verify
 from runtime import DurationStats, IdleGovernor, ResultStore, collect_gpu, memory_snapshot
 from app import _gen_one, _size, build_prompt, current_mode, get_i2i, unload_pipes, warmup
 
@@ -236,7 +238,7 @@ class GenerateReq(BaseModel):
 
     def adapter_slug(self) -> str:
         """生效的版本 slug（空字符串 → 服务端默认）。"""
-        return self.adapter or _DEFAULT_ADAPTER
+        return self.adapter or _default_adapter()
 
 
 class WarmupReq(BaseModel):
@@ -455,7 +457,8 @@ def generate_sync(req: GenerateReq, job_id: str, init_img: Image.Image | None) -
     try:
         adapter_path = str(config_resolve_adapter(adapter_slug))
     except ValueError:
-        adapter_slug, adapter_path = _DEFAULT_ADAPTER, str(config_resolve_adapter(_DEFAULT_ADAPTER))
+        adapter_slug = _default_adapter()
+        adapter_path = str(config_resolve_adapter(adapter_slug))
     steps = clamp_steps(req.steps, fast=fast)
     cfg = clamp_cfg(req.cfg, fast=fast)
     strength = clamp_strength(req.strength)
@@ -642,7 +645,8 @@ def models():
     rows = _adapter_catalogue()
     return {
         "ok": True,
-        "default": _DEFAULT_ADAPTER,
+        "default": _default_adapter(),
+        "previous": _previous_adapter(),
         "loaded": current_mode().get("adapter"),
         "count": len(rows),
         "models": rows,
@@ -668,6 +672,13 @@ def health():
         },
         "memory": memory_snapshot(), "storage": _store.stats(),
         "pipeline": {**current_mode(), **_idle.stats()},
+        # 台账状态：运维要能一眼看到"线上是哪个版本、哈希对不对、回滚目标是谁"
+        "registry": {
+            "default": _default_adapter(),
+            "previous": _previous_adapter(),
+            "versions": len(_adapter_catalogue()),
+            "default_verified": _config_verify(_default_adapter())[0],
+        },
         "sec_per_step": _timings.stats(),
     }
 

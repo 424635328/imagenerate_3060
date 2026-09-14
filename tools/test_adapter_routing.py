@@ -46,9 +46,9 @@ def check(name: str, condition: bool, detail: str = "") -> None:
 def main() -> int:
     print("白名单与解析（服务端唯一入口）")
     slugs = config.adapter_slugs()
-    check("白名单非空且含四个训练版本",
+    check("台账里的版本含四个训练版本",
           {"v4", "v5", "v5b", "v6q"} <= set(slugs), str(slugs))
-    check("默认版本在白名单里", config.DEFAULT_ADAPTER in slugs, config.DEFAULT_ADAPTER)
+    check("默认版本在白名单里", config.default_adapter() in slugs, config.default_adapter())
     bad_inputs = ["../../etc/passwd", "..\\..\\windows", "v9", "", None, "C:/Windows",
                   "v4;rm -rf /", "v4/../../..", " merge  ", "v4\x00"]
     rejected = []
@@ -72,7 +72,7 @@ def main() -> int:
           all(r["label"] and r["slogan"] and r["note"] for r in rows))
     check("恰好一条 default=True 且与服务端默认一致",
           sum(1 for r in rows if r["default"]) == 1
-          and next(r["id"] for r in rows if r["default"]) == config.DEFAULT_ADAPTER)
+          and next(r["id"] for r in rows if r["default"]) == config.default_adapter())
     check("TE 状态与实际文件一致（v4/v5b 有微调过的文本编码器）",
           {r["id"]: r["text_encoder"] for r in rows}["v4"] is True
           and {r["id"]: r["text_encoder"] for r in rows}["v5b"] is True
@@ -109,7 +109,7 @@ def main() -> int:
     check("同参数同版本 → 相同缓存键（缓存仍然有效）",
           key_a == _cache_key(req_a, 1, 20, 7.5, "dpmpp2m_karras", False, "none", "v4"))
     check("空 adapter（跟随默认）与显式默认版本等价",
-          GenerateReq(prompt="x").adapter_slug() == config.DEFAULT_ADAPTER)
+          GenerateReq(prompt="x").adapter_slug() == config.default_adapter())
     check("缓存键函数签名里确实要 adapter_slug（防止有人漏传）",
           "adapter_slug" in inspect.signature(_cache_key).parameters)
 

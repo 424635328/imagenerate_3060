@@ -214,6 +214,17 @@ def _build_pipe(fast: bool, sampler: str = "dpmpp2m_karras", adapter_dir: str | 
             from transformers.utils import logging as _tl; _tl.disable_progress_bar()
         except Exception: pass
     adapter_path = str(adapter_dir or ADAPTER)
+    # 加载前按台账校验权重哈希：不符就**拒绝加载**（宁可报错，也不静默用错权重）。
+    # 本项目两次被"adapter 看起来加载了、其实没生效/不是那份"咬过，所以这条必须是硬门。
+    try:
+        from config import verify_adapter_path
+        ok, reason, slug = verify_adapter_path(adapter_path)
+        if not ok:
+            raise RuntimeError(f"模型版本校验失败（{slug}）：{reason}；"
+                               f"请跑 python tools/registry.py scan 或恢复权重文件")
+        print(f"[registry] adapter {slug or '(未登记)'} 校验：{reason}")
+    except ImportError:                     # 独立使用 app.py 时（无 config 场景）不阻塞
+        pass
     pipe = StableDiffusionPipeline.from_pretrained(
         BASE, dtype=torch.float16, safety_checker=None, requires_safety_checker=False)
     adapter_cfg = LoraConfig.from_pretrained(adapter_path)
