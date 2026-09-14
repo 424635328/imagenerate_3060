@@ -7,6 +7,7 @@
  * actually visible on desktop before anything scrolls to it.
  */
 import * as store from './store.js';
+import * as motion from './motion.js';
 
 const DEFAULT_TABS = { left: 'create', right: 'queue' };
 
@@ -18,7 +19,7 @@ function activeTabs() {
   };
 }
 
-function apply(side, name) {
+function apply(side, name, animate = false) {
   const bar = document.querySelector(`.panel-tabs[data-shell="${side}"]`);
   if (!bar) return name;
   const buttons = [...bar.querySelectorAll('[data-panel]')];
@@ -36,14 +37,17 @@ function apply(side, name) {
   // Only this side's panels are touched — hiding every .tab-panel would blank
   // the other column the moment its own tabs were applied.
   document.querySelectorAll(`.tab-panel[data-shell="${side}"]`).forEach((panel) => {
-    panel.hidden = panel.dataset.panel !== active;
+    const show = panel.dataset.panel === active;
+    const changed = panel.hidden === show;        // about to become visible
+    panel.hidden = !show;
+    if (show && changed && animate) motion.enterPanel(panel);
   });
   return active;
 }
 
 function setTab(side, name) {
   const tabs = activeTabs();
-  const applied = apply(side, name) || name;
+  const applied = apply(side, name, true) || name;
   tabs[side] = applied;
   store.getState().settings.shellTabs = tabs;
   store.save();

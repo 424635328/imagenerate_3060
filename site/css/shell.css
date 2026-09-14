@@ -22,9 +22,13 @@
   gap: 4px;
   padding: 4px;
   margin-bottom: 10px;
-  background: var(--surface-2, #12131c);
+  background: linear-gradient(180deg, #ffffff05, transparent 60%),
+              color-mix(in srgb, var(--surface-2, #12131c) 82%, transparent);
+  backdrop-filter: var(--blur-bar, saturate(180%) blur(24px));
+  -webkit-backdrop-filter: var(--blur-bar, saturate(180%) blur(24px));
   border: 1px solid var(--line, #ffffff14);
-  border-radius: 12px;
+  border-radius: 14px;
+  box-shadow: var(--hairline-hi, inset 0 1px 0 #ffffff0f);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -55,17 +59,23 @@
 
 /* sticky topbar: the shell stays put while long panels scroll underneath.
    z-index 20 keeps it under the lightbox (40), modals (45), palette/toast (60)
-   and the mobile dock (30). */
+   and the mobile dock (30).
+   v8: this is now a proper "material" — translucent fill, blur+saturate, a
+   hairline highlight on the lit edge, and a scroll-edge treatment that fades in
+   past 24 px (motion.js toggles .is-condensed; see css/motion.css for the
+   large-title collapse itself). */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 20;
   margin-bottom: 10px;
   padding: 6px 0;
-  background: color-mix(in srgb, var(--bg, #07070c) 80%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: linear-gradient(180deg, #ffffff05, transparent 70%),
+              color-mix(in srgb, var(--bg, #07070c) 74%, transparent);
+  backdrop-filter: var(--blur-bar, saturate(180%) blur(24px));
+  -webkit-backdrop-filter: var(--blur-bar, saturate(180%) blur(24px));
   border-bottom: 1px solid var(--line, #ffffff14);
+  box-shadow: var(--hairline-hi, inset 0 1px 0 #ffffff0f);
 }
 
 /* anchor jumps must clear the sticky topbar */

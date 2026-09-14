@@ -39,6 +39,7 @@
 16. [v5：批内多图 + 结果缓存 + 前端工作台扩展](#16-v5批内多图--结果缓存--前端工作台扩展)
 17. [V6 起点：上传安全 + 任务取消 + 工程门禁](#17-v6-起点上传安全--任务取消--工程门禁已实施)
 18. [训练实验与负结果（2026-09-14）](#18-训练实验与负结果2026-09-14)
+19. [前端动效与材质：v8「弹簧」pass（2026-09-15）](#19-前端动效与材质v8弹簧pass2026-09-15)
 
 ---
 
@@ -368,9 +369,11 @@ $PY="<PYTHON>"; $R="<你的项目根目录>"
 & $PY $R\tools\train_driver.py --script train_v5.py --config $R\config_v5.cfg `
       --save_every 500 --min-free 1.8 --stall-seconds 300
 
-# ── 纯 CPU 门禁（改完必跑，共 180 项）──
+# ── 纯 CPU 门禁（改完必跑，共 211 项 + 2 个解析类门禁）──
 & $PY $R\tools\test_eval_plan.py ; & $PY $R\tools\test_merge_math.py ; & $PY $R\tools\test_sdxl_base.py
 & $PY $R\tools\test_pipeline_logic.py ; & $PY $R\tools\test_sr_and_judge.py
+& $PY $R\tools\test_spring_easing.py            # 动效弹簧曲线 vs 解析解（31 项）
+node $R\tools\check_css_syntax.mjs              # 全部 CSS 走 css-tree 严格解析
 
 # ── 推理与产物（历史脚本见 archive/）──
 & $PY $R\archive\v1_v2\inference.py --base $R\models\base_rv6 --lora $R\models\v4_640\adapter_best --prompt "..." --width 768 --height 768 --steps 24
@@ -694,3 +697,66 @@ V6q 甚至是所有候选里**最锐的**（742 vs V4 698），但裁判并不�
 
 > 命名说明：README 第 17 节的 **V6** 指**产品阶段**（上传安全 / 任务取消 / 工程门禁）；
 > 本节的 **V6q** 指**caption 对照实验的训练权重**（`config_v6q.cfg` / `models/v6_qwen/`）。两者无关。
+
+---
+
+## 19. 前端动效与材质：v8「弹簧」pass（2026-09-15）
+
+> 目标：把工作台做成**苹果那种"丝滑"**——不是加更多动画，而是让每一次状态变化都走
+> 真实物理曲线、让浮层读起来是同一种材质、并且**永远不因为动画而挡住内容**。
+
+### 19.1 弹簧不是手调贝塞尔，是解出来的
+
+`site/css/motion.css` 里的四条缓动由**阻尼谐振子阶跃响应**采样得到，导出成 CSS `linear()`
+（Chrome 113+ / Safari 17.2+ / Firefox 112+），不支持的浏览器保留 `cubic-bezier` 回退：
+
+| token | 阻尼比 ζ | 过冲 | 用在哪 |
+|---|---|---|---|
+| `--spring-ui` | 1.00（临界阻尼） | 0% | 按钮、芯片、焦点环等**状态**变化 |
+| `--spring-glide` | 0.86 | 0.5% | 卡片、面板、滚动入场等**表面** |
+| `--spring-sheet` | 0.72 | 3.8% | 弹层、模态、Toast（抽屉感） |
+| `--spring-pop` | 0.58 | 10.6% | 命令面板等**一次性**惊喜 |
+
+```
+x(t) = 1 - e^(-ζω₀t) · [cos(ω_d t) + (ζω₀/ω_d)·sin(ω_d t)]      ζ < 1
+x(t) = 1 - (1 + ω₀t)·e^(-ω₀t)                                    ζ = 1
+```
+
+每条曲线都切在**首次回落穿过 1.0** 的时刻，因此**精确落在目标值**上（不会给 transform/opacity
+留下 0.4% 的残差）。`tools/test_spring_easing.py`（31 项）重新解析 CSS 里的控制点与解析解逐个比对，
+把"看起来怪但没人知道为什么"这类问题钉在门禁上。
+
+### 19.2 交互上的具体变化（用户可感知）
+
+- **按下即响应**：`:active` 用 90 ms 快速压下、松手走 340 ms 弹簧回弹；悬停抬升只在
+  `(hover:hover) and (pointer:fine)` 生效，触摸设备上点过的卡片**不会**留下"粘住的浮起"。
+- **iOS 式大标题收缩**：滚动超过 24 px 后，顶栏标题块缩放、副标题溶解、滚动边缘的高光细线
+  与投影淡入（`.is-condensed`，rAF 合并的 scroll 监听）。**顶栏高度刻意不变** —— 真改高度会让
+  sticky 顶栏下的整页重排，那是抖动而不是丝滑。
+- **玻璃材质系统**：`--blur-bar` / `--blur-sheet` / `--mat-*` / `--hairline*` 令牌统一顶栏、
+  标签栏、模态、命令面板、Toast 的"毛玻璃 + 受光边缘 + 双层柔影"，不再各写各的灰。
+- **内容随滚动入场**：`.card / .scene-card / .stat-card / .lib-item / 画廊瓦片` 在进入视口时
+  spring 上浮淡入；**开局就在视口内的元素不会被隐藏**，动画结束即摘掉类，绝不与 hover 变换打架。
+- **主题切换圆形揭示**：点明暗按钮时用 View Transitions 从**点击位置**做 `clip-path: circle()`
+  揭示（旧帧冻结、新帧法线混合，避免 `plus-lighter` 叠加过曝）；不支持 / 开了减少动效时**直接切换**，
+  主题本身从不依赖动画成功。
+- **进度条滑动**：后端进度是粗粒度跳变，条宽走 420 ms 弹簧，视觉上变成连续滑动。
+- **细节**：iOS 连续圆角（`corner-shape: squircle`，Chrome 139+ 渐进增强）、双环焦点态、
+  数字用 `tabular-nums`（计数跳动不再抖宽）、图片加 1px 受光描边、内滚动容器
+  `overscroll-behavior: contain`、`scroll-behavior: smooth`。
+
+### 19.3 为什么面板切换**没有**用 View Transition
+
+`::view-transition-new` 是一张**不透明的冻结快照**，压在实时 DOM 之上——若给面板做视图过渡，
+面板自己的 spring 入场会被快照盖住看不见；而若把根快照的两帧动画都禁用，UA 默认的
+`plus-lighter` 混合又会把整页叠加提亮。所以标签切换用**实时元素上的类驱动动画**
+（`.tab-panel.is-enter`），只有 CSS 单独做不到的圆形揭示才交给 View Transitions。
+
+### 19.4 与其他层的边界
+
+- `site/css/tokens.css`：材质令牌与质感（毛玻璃、阴影、圆角、排版平滑、等宽数字、squircle）。
+- `site/css/motion.css`：**只管时间**（弹簧、按压物理、入场、揭示、焦点环、进度滑动）。
+- `site/css/shell.css`：顶栏/标签栏的材质与结构（它拥有 sticky shell，因此顶栏材质写在这里）。
+- `site/js/motion.js`：只翻状态类与补间数字（`initMotion()` / `enterPanel()` / `withThemeWipe()`）。
+- 减少动效（`prefers-reduced-motion`）：JS 侧全部跳过，CSS 侧把时长压到 0.01 ms 并对
+  "永不触发 animationend"的情况加了兜底。

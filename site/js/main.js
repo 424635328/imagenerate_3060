@@ -36,6 +36,9 @@ const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
 /* --------------------------------------------------------------- settings */
 
+/** Handle from motion.initMotion() — lets new DOM re-arm the scroll reveal. */
+let revealWatch = null;
+
 function readSettings() {
   const settings = store.getState().settings;
   SETTING_IDS.forEach((id) => {
@@ -464,6 +467,7 @@ function renderGallery() {
     },
   });
   extras.refreshExtras();
+  revealWatch?.scan();          // freshly rendered tiles may need a reveal arm
 }
 
 /* ----------------------------------------------------------------- health */
@@ -691,8 +695,12 @@ function bindControls() {
   document.querySelectorAll('[data-close]').forEach((btn) => {
     btn.onclick = () => ui.closeModal(btn.dataset.close);
   });
-  ui.el('themeBtn').onclick = () => {
-    ui.applyTheme(store.setTheme(store.getState().theme === 'light' ? 'dark' : 'light'));
+  ui.el('themeBtn').onclick = (event) => {
+    // circular reveal from the click position where the browser supports it
+    motion.withThemeWipe(
+      () => ui.applyTheme(store.setTheme(store.getState().theme === 'light' ? 'dark' : 'light')),
+      event,
+    );
   };
   ui.el('shareBtn').onclick = () => {
     readSettings();
@@ -1041,6 +1049,10 @@ function boot() {
 
   restore();
   refreshHealth();
+
+  // ---- ambient motion: scroll reveals + large-title header (CSS does looks) ----
+  revealWatch = motion.initMotion();
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       store.flush();                     // settings/jobs durable before tab sleeps

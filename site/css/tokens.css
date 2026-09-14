@@ -38,6 +38,19 @@
   --grad-accent: linear-gradient(120deg, var(--accent), var(--accent-2));
   --dur-fast: .14s;
   --dur: .22s;
+
+  /* --- v8 materials: one place for every translucent surface ---
+     Apple-style "vibrancy" = blur + saturation boost + a hairline highlight on
+     the lit edge, so a floating bar reads as a material rather than a box. */
+  --blur-bar: saturate(180%) blur(24px);
+  --blur-sheet: saturate(160%) blur(30px);
+  --mat-bar: color-mix(in srgb, var(--bg) 72%, transparent);
+  --mat-sheet: color-mix(in srgb, var(--surface) 88%, transparent);
+  --hairline: #ffffff12;
+  --hairline-hi: inset 0 1px 0 #ffffff0f;
+  --shadow-1: 0 1px 2px #00000059, 0 8px 24px #0000003d;
+  --shadow-2: 0 2px 6px #00000066, 0 24px 64px #0000008c;
+  --radius-lg: 22px;
 }
 
 /* =============================================================== base polish */
@@ -48,7 +61,14 @@ body {
     radial-gradient(900px 460px at 92% 4%, #22d3ee14, transparent 60%),
     var(--bg);
   background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
+
+/* numbers must not jitter while the counters tween (statusbar / stats / metrics) */
+.statusbar b, .metric b, .stat-card b, .stage-pos, .cmdk-count, #vramMetric,
+#doneMetric, #queueMetric, #historyCount, #resultMeta { font-variant-numeric: tabular-nums; }
 
 ::selection { background: #7c5cff47; }
 
@@ -71,10 +91,16 @@ body {
 section.card {
   background: linear-gradient(180deg, #ffffff05, transparent 22%), var(--surface);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-1);
   transition: border-color var(--dur), transform var(--dur);
 }
 .card:hover { border-color: var(--line-strong); }
+
+/* imagery gets a hairline edge, the way product photography is framed */
+.stage img, .stage-canvas img, .stage-grid img, .gallery img, .shot img {
+  outline: 1px solid var(--hairline);
+  outline-offset: -1px;
+}
 
 .card-head h2,
 h2 { letter-spacing: -.01em; }
@@ -94,11 +120,8 @@ h2 { letter-spacing: -.01em; }
   -webkit-text-fill-color: transparent;
 }
 
-.topbar {
-  background: #07070cd9;
-  backdrop-filter: blur(14px) saturate(140%);
-  border-bottom: 1px solid var(--line);
-}
+/* topbar material lives in css/shell.css — that file owns the sticky shell and
+   is loaded later, so a second copy here would only ever be dead weight. */
 
 /* ================================================================== controls */
 
@@ -196,9 +219,60 @@ textarea#prompt { line-height: 1.55; }
 .status.bad { color: var(--bad); }
 .status.busy { color: var(--accent-2); }
 
+/* ============================================================== v8 materials */
+/* Frosted, edge-lit surfaces.  Every floating layer shares the same recipe so
+   the product reads as one material system instead of three different greys:
+   translucent fill + blur/saturate + hairline highlight on the lit top edge. */
+
+.modal-box {
+  background: linear-gradient(180deg, #ffffff08, transparent 30%), var(--mat-sheet);
+  backdrop-filter: var(--blur-sheet);
+  -webkit-backdrop-filter: var(--blur-sheet);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-2), var(--hairline-hi);
+}
+
+.toast {
+  background: linear-gradient(180deg, #ffffff0a, transparent 60%), var(--mat-sheet);
+  backdrop-filter: var(--blur-bar);
+  -webkit-backdrop-filter: var(--blur-bar);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-2);
+}
+
+.lightbox img, .lb-foot, .lb-btn {
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-2);
+}
+
+/* iOS-style continuous corners where the engine supports them (Chrome 139+);
+   everywhere else the plain radii above stay in charge. */
+@supports (corner-shape: squircle) {
+  .card, .modal-box, .cmdk-box, .panel-tabs, .stage, .toast, .btn, .chip {
+    corner-shape: squircle;
+  }
+}
+
 /* ============================================================== placeholders */
 /* Light theme keeps the original tokens; only the studio accent carries over. */
-[data-theme='light'] { --accent: #6d4dff; --accent-2: #0ea5b7; }
+[data-theme='light'] {
+  --accent: #6d4dff;
+  --accent-2: #0ea5b7;
+  /* 亮色下"受光边缘"要反过来：白线在白底上等于没有边，改暗细线 + 白色内高光 */
+  --hairline: #16202f1f;
+  --hairline-hi: inset 0 1px 0 #ffffffcc;
+  --mat-bar: color-mix(in srgb, var(--bg) 78%, transparent);
+  --mat-sheet: color-mix(in srgb, var(--surface) 92%, transparent);
+  --shadow-1: 0 1px 2px #1a2b4a14, 0 8px 24px #1a2b4a1a;
+  --shadow-2: 0 2px 6px #1a2b4a1f, 0 24px 64px #1a2b4a2e;
+}
+
+/* 标题渐变是为近黑顶栏设计的：亮色下必须换成正向渐变，否则白字压白底看不见
+   （实测：亮色主题里 "LANDSCAPE·ART" 只剩 "·ART" 可辨）。 */
+[data-theme='light'] .topbar h1,
+[data-theme='light'] .hero h1 {
+  background-image: linear-gradient(100deg, var(--text), var(--accent) 58%, var(--accent-2));
+}
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; }

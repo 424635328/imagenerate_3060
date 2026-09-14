@@ -33,6 +33,8 @@ if (-not $Python) {
   $Python = ($candidates | Where-Object { Test-Path $_ } | Select-Object -First 1)
 }
 $env:LANDSCAPE_ROOT = $Root
+# 让中文日志在 PowerShell / harness 里都能正确显示（否则按控制台代码页输出会乱码）
+$env:PYTHONIOENCODING = 'utf-8'
 
 function Say($m) { Write-Host "» $m" -ForegroundColor Cyan }
 function Ok($m) { Write-Host "  [OK] $m" -ForegroundColor Green }
@@ -75,6 +77,14 @@ switch ($Task) {
     Say '前端 id / 模块一致性'
     & $Python tools\check_frontend.py
     if ($LASTEXITCODE -eq 0) { Ok 'frontend' } else { $fail++ }
+
+    Say 'CSS 语法（css-tree 严格解析）'
+    node tools\check_css_syntax.mjs
+    if ($LASTEXITCODE -eq 0) { Ok 'css syntax' } else { $fail++ }
+
+    Say '动效弹簧曲线（与解析解比对）'
+    & $Python tools\test_spring_easing.py
+    if ($LASTEXITCODE -eq 0) { Ok 'spring easing' } else { $fail++ }
 
     Say '路径与敏感串'
     & $Python tools\check_paths.py

@@ -237,7 +237,8 @@ python server.py
 - **任务取消**：`DELETE /jobs/{id}` 只取消 **queued** 任务（立刻生效、不占 GPU、`files=0`）；
   运行中的任务返回 **409** —— 不允许中断 CUDA 步进（会污染共享管线）。前端 `op=cancel` 经代理转发。
 - **统一开发入口**：`tools/dev.ps1`（check / eol / security / bench / verify / start / tunnel / deploy）。
-  提交前一律 `pwsh -NoProfile -File tools/dev.ps1 check`，它串起编译、JS 语法、前端一致性、路径、脱敏与行尾六道门禁。
+  提交前一律 `pwsh -NoProfile -File tools/dev.ps1 check`，它串起编译、JS 语法、前端一致性、CSS 解析、
+  动效弹簧曲线、路径、脱敏与行尾八道门禁。
 - **行尾门禁**：`tools/check_eol.py` 发现任何混合行尾即 `exit 1`（可挂 CI/pre-commit）；
   修复用 `tools/normalize_eol.py`。**`.ps1` 属 Windows 启动器，必须 CRLF。**
 
@@ -260,6 +261,7 @@ python server.py
 ```powershell
 python -m py_compile app.py server.py server_cloud.py config.py runtime.py enhance.py
 python tools/check_frontend.py     # 前端 id / 模块引用一致性
+node tools/check_css_syntax.mjs    # 全部 CSS 走 css-tree 严格解析（缺依赖自动 SKIP）
 python tools/check_paths.py        # 个人绝对路径与敏感串
 python tools/normalize_eol.py      # 行尾统一（应报 0 或仅启动器）
 python research/final_check.py     # 脱敏总检（应无敏感项）
@@ -275,6 +277,7 @@ python tools/test_merge_math.py    # 融合算术 + no-op 事故回归（28 项�
 python tools/test_sdxl_base.py     # 基座解析到本地快照（13 项，防"联网失败被误判成显存不足"）
 python tools/test_pipeline_logic.py  # 探针解析 / 分辨率决策 / 故障归类（16 项）
 python tools/test_sr_and_judge.py  # 自训超分接入 + sr_model 输入校验 + 盲测裁判统计（32 项）
+python tools/test_spring_easing.py # 前端动效 spring 曲线 vs 解析解（31 项，改 site/css/motion.css 必跑）
 python tools/deploy_check.py --adapter models/v5b_lora/adapter_best --expect-text-encoder
        # 部署形态静态检查：线上到底会加载哪份 UNet LoRA 与文本编码器
 python tools/verify_merge.py --sources models/v4_640/adapter_best models/v5_lora/adapter_best `

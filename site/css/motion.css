@@ -1,4 +1,4 @@
-/* Landscape·Art — Motion & Interaction layer (V6).
+/* Landscape·Art — Motion & Interaction layer (V6 → v8 "spring" pass).
  *
  * One place for every animation on the product.  Rules:
  *   1. Animate ONLY transform / opacity / filter / clip-path.
@@ -7,17 +7,50 @@
  *   4. .lb-stage img must NOT be animated via CSS `animation` with fill-mode:
  *      its transform is owned by the lightbox zoom engine.
  *   5. Pure CSS where possible (stagger = nth-child delays); JS only for state.
+ *
+ * v8 adds real physics.  The easings below are sampled step responses of a
+ * damped harmonic oscillator, exported as CSS `linear()`:
+ *
+ *   x(t) = 1 - e^(-ζω₀t) [cos(ω_d t) + (ζω₀/ω_d) sin(ω_d t)]      (ζ < 1)
+ *   x(t) = 1 - (1 + ω₀t) e^(-ω₀t)                                  (ζ = 1)
+ *
+ *   --spring-ui     ζ 1.00  critically damped, 0% overshoot → state & buttons
+ *   --spring-glide  ζ 0.86  0.5% overshoot → surfaces, panels, reveals
+ *   --spring-sheet  ζ 0.72  3.8% overshoot → sheets, modals, toasts
+ *   --spring-pop    ζ 0.58 10.6% overshoot → one-shot delight (command palette)
+ *
+ * Every curve is cut at its FIRST return to 1.0 after the peak, so the easing
+ * lands exactly on the target value instead of leaving a residual offset on
+ * transform/opacity.  Browsers without `linear()` keep the bezier fallbacks.
  */
 
 :root {
+  --motion-instant: 90ms;      /* press-in response (must feel immediate) */
   --motion-micro: 140ms;
   --motion-fast: 180ms;
   --motion-normal: 240ms;
+  --motion-glide: 340ms;
   --motion-slow: 360ms;
+  --motion-sheet: 460ms;
   --motion-reveal: 520ms;
   --ease-standard: cubic-bezier(.2, .8, .2, 1);
   --ease-emphasized: cubic-bezier(.22, 1, .36, 1);
   --ease-smooth: cubic-bezier(.16, 1, .3, 1);
+
+  /* spring fallbacks — replaced by `linear()` physics where supported */
+  --spring-ui: cubic-bezier(.2, .8, .2, 1);
+  --spring-glide: cubic-bezier(.22, 1, .36, 1);
+  --spring-sheet: cubic-bezier(.34, 1.06, .4, 1);
+  --spring-pop: cubic-bezier(.32, 1.18, .36, 1);
+}
+
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --spring-ui: linear(0, 0.0497 3.85%, 0.1588 7.69%, 0.2873 11.54%, 0.414 15.38%, 0.5285 19.23%, 0.6269 23.08%, 0.7085 26.92%, 0.7746 30.77%, 0.8272 34.62%, 0.8685 38.46%, 0.9005 42.31%, 0.9252 46.15%, 0.9439 50%, 0.9582 53.85%, 0.9689 57.69%, 0.977 61.54%, 0.983 65.38%, 0.9874 69.23%, 0.9908 73.08%, 0.9932 76.92%, 0.995 80.77%, 0.9964 84.62%, 0.9974 88.46%, 0.9981 92.31%, 0.9986 96.15%, 1);
+    --spring-glide: linear(0, 0.0732 3.85%, 0.2287 7.69%, 0.403 11.54%, 0.5635 15.38%, 0.6965 19.23%, 0.7992 23.08%, 0.8741 26.92%, 0.9261 30.77%, 0.9604 34.62%, 0.9818 38.46%, 0.9944 42.31%, 1.001 46.15%, 1.0041 50%, 1.005 53.85%, 1.0048 57.69%, 1.0041 61.54%, 1.0032 65.38%, 1.0024 69.23%, 1.0017 73.08%, 1.0011 76.92%, 1.0007 80.77%, 1.0004 84.62%, 1.0002 88.46%, 1.0001 92.31%, 1 96.15%, 1);
+    --spring-sheet: linear(0, 0.0403 3.85%, 0.1382 7.69%, 0.2659 11.54%, 0.4032 15.38%, 0.5364 19.23%, 0.6569 23.08%, 0.7603 26.92%, 0.8448 30.77%, 0.9109 34.62%, 0.9601 38.46%, 0.9948 42.31%, 1.0175 46.15%, 1.0308 50%, 1.0371 53.85%, 1.0383 57.69%, 1.0363 61.54%, 1.0322 65.38%, 1.0272 69.23%, 1.0219 73.08%, 1.0169 76.92%, 1.0124 80.77%, 1.0085 84.62%, 1.0054 88.46%, 1.003 92.31%, 1.0012 96.15%, 1);
+    --spring-pop: linear(0, 0.0287 3.85%, 0.1031 7.69%, 0.2078 11.54%, 0.3292 15.38%, 0.4566 19.23%, 0.5814 23.08%, 0.6975 26.92%, 0.8007 30.77%, 0.8887 34.62%, 0.9605 38.46%, 1.0162 42.31%, 1.057 46.15%, 1.0843 50%, 1.1001 53.85%, 1.1064 57.69%, 1.1053 61.54%, 1.0988 65.38%, 1.0885 69.23%, 1.0759 73.08%, 1.0624 76.92%, 1.0489 80.77%, 1.0362 84.62%, 1.0247 88.46%, 1.0147 92.31%, 1.0065 96.15%, 1);
+  }
 }
 
 /* ============================================================ image reveal */
@@ -38,14 +71,33 @@
 .gallery .gi img { background: var(--surface-3); }
 .gallery .gi:hover, .imgs .shot:hover { transform: translateY(-2px) scale(1.015); }
 
+/* ------------------------------------------------------ reveal on scroll */
+/* JS adds .ls-reveal to below-the-fold blocks and .is-in when they enter the
+   viewport (one mechanism everywhere — no scroll-timeline/IO split).  The
+   classes are removed on animationend so hover transforms stay untouched. */
+@keyframes ls-rise {
+  from { opacity: 0; transform: translateY(16px) scale(.994); }
+  to   { opacity: 1; transform: none; }
+}
+.ls-reveal.is-in { animation: ls-rise var(--motion-reveal) var(--spring-glide) both; }
+
 /* ========================================================== buttons & CTA */
 
-.btn { transition: transform var(--motion-micro) var(--ease-standard),
-                 box-shadow var(--motion-micro) var(--ease-standard),
+.btn { transition: transform var(--motion-glide) var(--spring-ui),
+                 box-shadow var(--motion-fast) var(--ease-standard),
                  background var(--motion-fast) var(--ease-standard),
                  border-color var(--motion-fast) var(--ease-standard); }
-.btn:hover:not(:disabled) { transform: translateY(-1px) scale(1.01); }
-.btn:active:not(:disabled) { transform: scale(.97); }
+
+/* Press-in must be immediate (90 ms), the release springs back (340 ms).
+   Hover lift is gated to real pointers so touch never keeps a stuck state. */
+.btn:active:not(:disabled) {
+  transform: scale(.965);
+  transition-duration: var(--motion-instant);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled) { transform: translateY(-1px) scale(1.012); }
+  .btn.big:hover:not(:disabled) { transform: translateY(-1px) scale(1.022); }
+}
 
 /* Generate lifecycle: label crossfades via .btn-label span; JS swaps text. */
 .btn .btn-label { display: inline-block; transition: opacity var(--motion-micro) ease, transform var(--motion-micro) ease; }
@@ -56,19 +108,104 @@
 @keyframes btn-energy { to { background-position: 220% 0; } }
 .btn.is-done { background: linear-gradient(120deg, #22c55e, #4ade80); box-shadow: 0 8px 22px #22c55e3d; }
 
+/* ====================================================== large-title topbar */
+
+/* iOS large titles collapse as you scroll.  The bar keeps its height (a real
+   height change would reflow the whole page under a sticky header — jank),
+   so only the title block scales/fades and the edge treatment deepens.
+   `.is-condensed` is toggled by motion.js past 24 px of scroll. */
+.brand { transform-origin: left center;
+         transition: transform var(--motion-slow) var(--spring-glide); }
+.brand img { transition: transform var(--motion-slow) var(--spring-glide); }
+.brand p { transition: opacity var(--motion-fast) var(--ease-standard),
+                       transform var(--motion-slow) var(--spring-glide); }
+
+.topbar.is-condensed .brand { transform: scale(.94); }.topbar.is-condensed .brand img { transform: scale(.88); }
+.topbar.is-condensed .brand p { opacity: 0; transform: translateY(-4px); }
+
+/* scroll edge: the hairline + drop shadow only appear once content is under
+   the bar, which is what makes a sticky bar read as a floating material. */
+.topbar { transition: background var(--motion-normal) var(--ease-standard),
+                     box-shadow var(--motion-normal) var(--ease-standard); }
+.topbar::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #7c5cff59 22%, #22d3ee40 62%, transparent);
+  opacity: 0;
+  transition: opacity var(--motion-normal) var(--ease-standard);
+  pointer-events: none;
+}
+.topbar.is-condensed { box-shadow: var(--hairline-hi, inset 0 1px 0 #ffffff0f), 0 10px 30px #00000059; }
+.topbar.is-condensed::after { opacity: 1; }
+
+/* ========================================================== panel switch */
+
+/* Live panel entrance.  Deliberately NOT a View Transition: a
+   `::view-transition-new` snapshot is an opaque frozen frame painted over the
+   live DOM, so the live spring animation would be hidden behind it (and a
+   paused root pair with the UA's `plus-lighter` blend double-brightens the
+   page).  A plain class-driven animation on the live element is exact here. */
+@keyframes ls-panel-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.tab-panel.is-enter { animation: ls-panel-enter var(--motion-glide) var(--spring-glide) both; }
+
+/* Theme switch: circular reveal from the toggle button (CSS alone cannot do
+   this, so it IS a view transition).  motion.js sets --vt-x / --vt-y to the
+   click position and adds `.vt-theme`; the old frame is frozen and the new one
+   wipes over it with normal blending (no plus-lighter brightening). */
+@supports (view-transition-name: none) {
+  :root.vt-theme ::view-transition-old(root) { animation: none; mix-blend-mode: normal; }
+  :root.vt-theme ::view-transition-new(root) {
+    animation: ls-theme-wipe var(--motion-sheet) var(--spring-glide) both;
+    mix-blend-mode: normal;
+  }
+}
+@keyframes ls-theme-wipe {
+  from { clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 6%)); }
+  to   { clip-path: circle(150% at var(--vt-x, 50%) var(--vt-y, 6%)); }
+}
+
 /* =========================================================== prompt focus */
 
 textarea#prompt { transition: border-color var(--motion-fast) var(--ease-standard),
-                           box-shadow var(--motion-fast) var(--ease-standard); }
+                           box-shadow var(--motion-normal) var(--ease-standard); }
 textarea#prompt:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px #7c5cff26, 0 12px 30px #00000040;
 }
 
 /* chips feel magnetic, not clicky */
-.chip { transition: transform var(--motion-micro) var(--ease-standard),
+.chip { transition: transform var(--motion-glide) var(--spring-ui),
                    border-color var(--motion-fast), background var(--motion-fast); }
-.chip:hover { transform: translateY(-1px) scale(1.03); }
+.chip:active { transform: scale(.96); transition-duration: var(--motion-instant); }
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover { transform: translateY(-1px) scale(1.03); }
+  .gallery .gi:hover, .imgs .shot:hover { transform: translateY(-2px) scale(1.015); }
+  .tabs button:hover, .fbtn:hover, .panel-tabs button:hover { transform: translateY(-1px); }
+}
+.tabs button:active, .fbtn:active { transform: scale(.97); transition-duration: var(--motion-instant); }
+
+/* Touch devices keep the last :hover until the next tap, so the earlier
+   layers' un-gated hover lifts would stick.  Neutralise them (colour feedback
+   stays, the fake "lifted card" does not). */
+@media (hover: none) {
+  .btn:hover, .chip:hover, .card:hover, .scene-card:hover,
+  .gallery .gi:hover, .imgs .shot:hover,
+  .tabs button:hover, .fbtn:hover, .panel-tabs button:hover { transform: none; }
+}
+
+/* segmented controls animate their selection instead of hard-switching */
+.tabs button, .fbtn, .panel-tabs button {
+  transition: background var(--motion-normal) var(--ease-standard),
+              color var(--motion-normal) var(--ease-standard),
+              border-color var(--motion-normal) var(--ease-standard),
+              box-shadow var(--motion-normal) var(--ease-standard),
+              transform var(--motion-glide) var(--spring-ui);
+}
 
 /* ============================================================== skeletons */
 
@@ -90,7 +227,9 @@ textarea#prompt:focus {
 
 /* ================================================================ toasts */
 
-.toast { transition: opacity var(--motion-fast) ease, transform var(--motion-fast) var(--ease-standard); }
+/* Sheet-style presentation: slides up on a spring, dissolves on the way out. */
+.toast { transition: opacity var(--motion-fast) var(--ease-standard),
+                     transform var(--motion-sheet) var(--spring-sheet); }
 
 /* ==================================================== lightbox immersion */
 
@@ -100,7 +239,7 @@ textarea#prompt:focus {
   from { background: #02040a00; }
   to   { background: #02040af2; }
 }
-.lightbox.show .lb-stage { animation: lb-pop var(--motion-normal) var(--ease-emphasized); }
+.lightbox.show .lb-stage { animation: lb-pop var(--motion-sheet) var(--spring-sheet); }
 @keyframes lb-pop {
   from { transform: scale(.96); opacity: 0; }
   to   { transform: none; opacity: 1; }
@@ -111,6 +250,51 @@ textarea#prompt:focus {
                             box-shadow var(--motion-micro); }
 .compare-handle:hover { transform: scale(1.08); }
 .compare-handle:active { transform: scale(1.12); box-shadow: 0 0 0 6px #7c5cff26; }
+
+/* ======================================================= modals & palette */
+
+/* modal = bottom sheet on phones, centred dialog on desktop: both rise on the
+   sheet spring while the veil fades underneath. */
+.modal.show { animation: ls-veil-in var(--motion-normal) var(--ease-standard) both; }
+.modal.show .modal-box { animation: ls-sheet-up var(--motion-sheet) var(--spring-sheet) both; }
+@keyframes ls-veil-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ls-sheet-up {
+  from { opacity: 0; transform: translateY(18px) scale(.972); }
+  to   { opacity: 1; transform: none; }
+}
+
+.cmdk.show { animation: ls-veil-in var(--motion-fast) var(--ease-standard) both; }
+.cmdk-box { animation: ls-cmdk-rise var(--motion-sheet) var(--spring-pop) both; }
+@keyframes ls-cmdk-rise {
+  from { opacity: 0; transform: translateY(-10px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ============================================================== progress */
+
+/* progress arrives in coarse jumps from the backend — the spring turns that
+   into a continuous glide instead of a stepped bar. */
+.progress .track i { transition: width 420ms var(--spring-glide),
+                                box-shadow var(--motion-normal) var(--ease-standard); }
+.progress .track i:not(.indeterminate) { box-shadow: 0 0 12px #7c5cff4d; }
+.progress .track i.indeterminate { transition: none; box-shadow: none; }
+
+/* ============================================================== focus ring */
+
+/* double ring: page-coloured gap + accent ring, readable on any surface. */
+:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px color-mix(in srgb, var(--accent) 72%, transparent);
+  transition: box-shadow var(--motion-fast) var(--spring-ui);
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px color-mix(in srgb, var(--accent) 72%, transparent);
+}
+
+/* =========================================================== scroll feel */
+
+html { scroll-behavior: smooth; }
+/* inner scrollers must not chain into the page (rubber-band bleed) */
+.cmdk-list, .panel-tabs, .gallery, #queue, .lib-list { overscroll-behavior: contain; }
 
 /* ====================================================== status pulse */
 
@@ -129,4 +313,8 @@ textarea#prompt:focus {
     transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
+  /* JS already skips these; belt-and-braces for a mid-session preference flip
+     (an animation that never runs also never fires animationend) */
+  .ls-reveal.is-in, .tab-panel.is-enter { animation: none !important; }
+  .topbar::after { transition: none !important; }
 }

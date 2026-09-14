@@ -9,7 +9,7 @@
  *   static asset    → stale-while-revalidate (instant second load, fresh later)
  *   anything else   → passthrough
  */
-const CACHE_VERSION = 'lsart-shell-v4';
+const CACHE_VERSION = 'lsart-shell-v5';
 const SHELL = [
   '/',
   '/index.html',
