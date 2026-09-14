@@ -9,7 +9,7 @@
  *   static asset    → stale-while-revalidate (instant second load, fresh later)
  *   anything else   → passthrough
  */
-const CACHE_VERSION = 'lsart-shell-v3';
+const CACHE_VERSION = 'lsart-shell-v4';
 const SHELL = [
   '/',
   '/index.html',
@@ -24,6 +24,7 @@ const SHELL = [
   '/css/composer.css',
   '/css/ab.css',
   '/css/shell.css',
+  '/css/advisor.css',
   '/js/config.js',
   '/js/api.js',
   '/js/store.js',
@@ -38,6 +39,7 @@ const SHELL = [
   '/js/composer.js',
   '/js/ab.js',
   '/js/shell.js',
+  '/js/advisor.js',
   '/js/main.js',
   '/makoto.svg',
   '/makoto-thunder.svg',

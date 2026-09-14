@@ -140,3 +140,56 @@ export const SHORTCUTS = [
   ['Esc', '关闭弹层'],
   ['?', '打开本帮助'],
 ];
+
+/* ------------------------------------------------------------------ advisor
+ * 参数顾问的「知识库」：这里只放**静态语义**（每个参数是干什么的、单位、类型）。
+ * 「推荐值」一律由 js/advisor.js 现算——依据采样器画像、质量饱和曲线、
+ * 显存模型，以及**本机历史实测**（store.stats）标定后的成本模型。
+ */
+
+export const PARAM_SPECS = {
+  prompt: { what: '主体内容。留空则随机抽一个场景；修饰词与实验室片段会自动追加在后面。', kind: 'text' },
+  style: { what: '全局画风先验。写实摄影最贴合本项目的数据集与 LoRA。', kind: 'select' },
+  recipe: { what: '一键配方：同时设定采样器、步数与 CFG。选「自定义」后三者可独立调整。', kind: 'select' },
+  sampler: { what: '采样器决定去噪轨迹。少步采样器（LCM/TCD）用 4–8 步出草图，质量型采样器需要 20+ 步。', kind: 'select' },
+  steps: { what: '去噪步数：每步都消耗时间，但质量在饱和点之后几乎不再提升。', kind: 'range', unit: '步' },
+  cfg: { what: '提示词引导强度（CFG）：越高越贴合文字、也越容易过饱和与僵硬。', kind: 'range' },
+  seed: { what: '随机种子：同 seed + 同参数 = 完全相同的图；-1 表示每次随机。', kind: 'number' },
+  res: { what: '基础生成边长。SD1.5 原生域是 512，640 是画质与速度的折中点。', kind: 'select', unit: 'px' },
+  aspect: { what: '画幅比例：横构图适合山脉与海岸，竖构图适合瀑布与森林。', kind: 'select' },
+  batch: { what: '一次任务产出几张变体（同一队列位、一次轮询）。耗时随张数线性增长。', kind: 'select', unit: '张' },
+  clarity: { what: '清晰度方案：先基础生成，再超分/分块重绘补细节，避免 6GB 直接出 2K+。', kind: 'select' },
+  sr: { what: '超分模型：自训·风景在本机数据上微调（细节 6.5–8.7× bicubic），UltraSharp 最锐，Real-ESRGAN 柔和适合云雾。', kind: 'select' },
+  negPreset: { what: '负向预设：换一组常用排除词。少步模式下负向引导很弱。', kind: 'select' },
+  neg: { what: '负向提示词：告诉模型不要出现什么。', kind: 'text' },
+  strength: { what: '重绘强度（img2img）：越小越贴近参考图，越大越自由。', kind: 'range' },
+};
+
+/** 采样器画像：tau 是质量饱和常数（步数到 ~3τ 时边际收益已很低），
+ *  cfgSweet 是经验最优引导区间，fewStep 表示少步采样器。 */
+export const SAMPLER_PROFILE = {
+  lcm: { label: 'LCM', tau: 2.0, cfgSweet: [1.0, 2.0], fewStep: true, note: '少步：6 步左右即饱和，CFG 必须压低' },
+  tcd: { label: 'TCD', tau: 2.0, cfgSweet: [1.0, 2.0], fewStep: true, note: '少步：与 LCM 同族，需对应权重' },
+  dpmpp2m_karras: { label: 'DPM++ 2M Karras', tau: 8.0, cfgSweet: [6.5, 8.0], fewStep: false, note: '标准成片：Karras 调度让 24 步左右到饱和' },
+  dpmpp2m_sde: { label: 'DPM++ 2M SDE', tau: 10.0, cfgSweet: [6.0, 7.5], fewStep: false, note: '纹理更细腻：需要 ~30 步，且随机性更强' },
+  dpmpp2m: { label: 'DPM++ 2M', tau: 9.0, cfgSweet: [6.5, 8.0], fewStep: false, note: '不带 Karras：同步数下略逊于 Karras 版' },
+  euler_a: { label: 'Euler Ancestral', tau: 9.0, cfgSweet: [6.0, 7.5], fewStep: false, note: '每步注入噪声：构图变化大，适合探索' },
+  euler: { label: 'Euler', tau: 8.0, cfgSweet: [6.5, 8.0], fewStep: false, note: '确定性欧拉：稳定但细节一般' },
+  ddim: { label: 'DDIM', tau: 12.0, cfgSweet: [6.5, 8.0], fewStep: false, note: '老式调度：需要更多步，性价比低' },
+};
+
+/** 成本/显存模型系数（可由 advisor.calibrate() 用本机实测覆盖）。
+ *  cost:  seconds ≈ warmup + k * steps * MP^b      （MP = 百万像素）
+ *  sr:    seconds ≈ srK * targetMP + srC            （超分阶段）
+ *  redraw:seconds ≈ redrawK * strength * targetMP   （分块重绘，4K 档后端置 strength=0）
+ *  vram:  GB ≈ base + slope * MP + clarityExtra[mode]，budget 为 6GB 卡可用上限
+ *  初值锚点全部来自项目实测：
+ *    512/24 步 ≈ 6 s；768/24 步 ≈ 22.6 s（README §12.1）
+ *    2048 超清 ≈ 63 s、4096（strength=0）≈ 30 s（README §6.3）
+ *    峰值显存：512 → 2.8 GB、768 → 3.7 GB
+ */
+export const ADVISOR_MODEL = {
+  cost: { k: 2.14, b: 1.6, warmup: 0.8 },
+  sr: { srK: 1.0, srC: 8, redrawK: 35 },
+  vram: { base: 2.08, slope: 2.74, budget: 5.6, clarityExtra: { std: 0, hd: 0.6, ultra: 0.4, max: 0.5, '4k': 0.6 } },
+};

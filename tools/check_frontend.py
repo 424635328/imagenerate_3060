@@ -29,7 +29,7 @@ HTML_ID = re.compile(r"\bid=\"([A-Za-z0-9_]+)\"")
 IMPORTS = re.compile(r"from\s+'(\./[A-Za-z0-9_./-]+)'")
 LOCAL_ASSET = re.compile(r"(?:href|src)=\"(/[A-Za-z0-9_./-]+)\"")
 # ids that are created dynamically by JavaScript, not present in the HTML shell
-DYNAMIC_IDS = {"mainImage", "compareBox", "compareTop", "compareHandle"}
+DYNAMIC_IDS = {"mainImage", "compareBox", "compareTop", "compareHandle", "advisorSummary"}
 
 KEYFRAMES = re.compile(r"@keyframes\s+([\w-]+)")
 ANIM_VALUE = re.compile(r"animation(?:-name)?\s*:\s*([^;}]+)")

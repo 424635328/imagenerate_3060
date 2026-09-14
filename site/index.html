@@ -23,6 +23,8 @@
 <link rel="stylesheet" href="/css/ab.css">
 <!-- v7 shell: tabbed panels + sticky topbar + long-page rendering -->
 <link rel="stylesheet" href="/css/shell.css">
+<!-- 参数顾问：每个参数格子的作用说明 + 动态推荐值 -->
+<link rel="stylesheet" href="/css/advisor.css">
 </head>
 <body>
 <a class="skip" href="#stagePanel">跳到画布</a>
@@ -194,7 +196,7 @@
           </div>
           <div class="field">
             <label for="sr">超分模型</label>
-            <select id="sr"><option value="ultrasharp">4x-UltraSharp</option><option value="realesrgan">Real-ESRGAN</option></select>
+            <select id="sr"><option value="ours">自训·风景（推荐）</option><option value="ours_final">自训·末轮（细节更强）</option><option value="ultrasharp">4x-UltraSharp</option><option value="realesrgan">Real-ESRGAN</option></select>
           </div>
         </div>
 

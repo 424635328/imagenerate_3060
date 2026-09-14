@@ -195,6 +195,39 @@ if ($('#scenes')) {
   const total = Number(countText.split('/')[1]);
   check('palette: ≥10 commands registered', total >= 10, `count="${countText}"`);
   check('palette: renders rows', $$('.cmdk .cmdk-row').length > 0);
+
+  /* ---- 参数顾问：推荐值必须是算出来的，而不是硬编码文案 ---- */
+  const advisor = await import(pathToFileURL(path.join(SITE, 'js/advisor.js')).href);
+  check('advisor: 参数字格都挂了说明', $$('.advice').length >= 8, `got ${$$('.advice').length}`);
+  check('advisor: 汇总面板已注入', !!$('#advisorSummary .advisor-metrics'));
+  check('advisor: 作用说明写到了 label 的 title 上',
+    ($('#steps')?.closest('.field')?.querySelector('label')?.title || '').includes('去噪步数'));
+
+  const satKarras = advisor.saturationSteps('dpmpp2m_karras');
+  const satSde = advisor.saturationSteps('dpmpp2m_sde');
+  const satLcm = advisor.saturationSteps('lcm');
+  check('advisor: 饱和步数随采样器而变（同一公式推导）', satKarras < satSde && satLcm < satKarras,
+    `lcm=${satLcm} karras=${satKarras} sde=${satSde}`);
+
+  const cheap = advisor.estimateSeconds({ res: '512', steps: 12, clarity: 'std', aspect: '方' });
+  const rich = advisor.estimateSeconds({ res: '640', steps: 24, clarity: 'std', aspect: '方' });
+  const heavy = advisor.estimateSeconds({ res: '640', steps: 24, clarity: '4k', aspect: '方' });
+  check('advisor: 成本随步数与清晰度单调增长', cheap < rich && rich < heavy,
+    `${cheap.toFixed(1)} < ${rich.toFixed(1)} < ${heavy.toFixed(1)}`);
+
+  const vramBase = advisor.estimateVram({ res: '512', clarity: 'std' });
+  const vram4k = advisor.estimateVram({ res: '640', clarity: '4k' });
+  check('advisor: 显存估计随清晰度上升（真在算）', vram4k > vramBase,
+    `${vramBase.toFixed(1)} → ${vram4k.toFixed(1)} GB`);
+
+  $('#steps').value = '58';
+  advisor.refresh();
+  $('#advisorSummary [data-advisor="apply"]').click();
+  check('advisor: 一键采用推荐值生效', $('#steps').value !== '58', `steps → ${$('#steps').value}`);
+  const summary = advisor.lastSummary();
+  check('advisor: 汇总含成本/显存/饱和点',
+    !!summary && summary.seconds > 0 && summary.vram > 0 && summary.saturated > 0,
+    summary ? `${summary.seconds.toFixed(1)}s / ${summary.vram.toFixed(1)}GB / ${summary.saturated}步` : 'none');
 }
 
 check('runtime: no errors thrown', errors.length === 0, errors.slice(0, 3).join(' | '));

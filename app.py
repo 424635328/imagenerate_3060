@@ -28,7 +28,8 @@ BASE = os.environ.get("BASE_MODEL") or (LOCAL_BASE if BASE_MODEL_DIR.is_dir() el
 ADAPTER = str(ADAPTER_DIR)
 LCM_DIR = str(LCM_DIR)
 TCD_DIR = str(TCD_DIR)
-SR = str(SR_DIR / "RealESRGAN_x4plus.pth")
+# 超分模型统一由 enhance.SR_MODELS 注册表提供（见 get_sr()），这里不再硬编码路径；
+# 需要回退商用权重时设 SR_MODEL=ultrasharp / realesrgan。
 
 RANDOM_TEMPLATES = [
     "a scenic landscape, golden hour light, dramatic clouds",
@@ -271,10 +272,16 @@ def get_i2i(fast: bool = False, sampler: str = "dpmpp2m_karras"):
     return _i2i
 
 def get_sr():
+    """加载超分模型 —— 走 `enhance.SR_MODELS` 同一注册表，三个入口（Gradio / API / 前端）保持一致。
+
+    默认用**本项目自训**的 `ours`（风景领域微调，细节量 6.53×/8.69× vs bicubic，
+    见 README §6.3 与 docs/TRAINING.md §8）；可用 `SR_MODEL` 环境变量切回商用权重。
+    原来这里硬编码 RealESRGAN，导致网页端与 API 端默认不是同一个模型。
+    """
     global _sr
     if _sr is None:
-        from spandrel import ModelLoader
-        _sr = ModelLoader().load_from_file(SR)
+        import enhance
+        _sr = enhance.get_sr(os.environ.get("SR_MODEL", "ours"))
     return _sr
 
 def _sr_up(img):

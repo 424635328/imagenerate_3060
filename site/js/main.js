@@ -17,6 +17,7 @@ import * as scenes from './scenes.js';
 import * as composer from './composer.js';
 import * as ab from './ab.js';
 import * as shell from './shell.js';
+import * as advisor from './advisor.js';
 import { compressForUpload, extractImage, formatBytes } from './upload.js';
 
 const SETTING_IDS = ['prompt', 'style', 'random', 'recipe', 'sampler', 'steps', 'cfg',
@@ -43,6 +44,7 @@ function readSettings() {
   });
   settings.modifiers = [...modifiers];
   store.save();
+  scheduleAdvisor();          // 任何设置变化都让顾问重算推荐值
 }
 
 function applySettings() {
@@ -77,6 +79,7 @@ function refreshComposed() {
   ui.el('promptCount').textContent = `${value.length}/500`;
   ui.renderComposed(composedPrompt());
   composer.refresh();
+  scheduleAdvisor();
 }
 
 function toggleModifier(fragment, chip) {
@@ -251,6 +254,15 @@ function scheduleQueue() {
   if (queueScheduled || document.hidden) return;
   queueScheduled = true;
   requestAnimationFrame(() => { queueScheduled = false; ui.renderQueue(store.getState().jobs); });
+}
+
+/* 参数顾问重算：打字与拖滑杆都会高频触发，合并到每帧一次 */
+let advisorScheduled = false;
+
+function scheduleAdvisor() {
+  if (advisorScheduled) return;
+  advisorScheduled = true;
+  requestAnimationFrame(() => { advisorScheduled = false; advisor.refresh(); });
 }
 
 function trackJob(record, onSettled) {
@@ -601,6 +613,10 @@ function bindControls() {
   ui.el('prompt').oninput = () => { refreshComposed(); readSettings(); };
   ui.el('random').onchange = () => { refreshComposed(); readSettings(); };
   ui.el('sceneSearch').oninput = () => scenes.filterScenes(ui.el('sceneSearch').value);
+  // 质检面板里的每个控件都参与推荐计算（滑杆用 input 事件即时更新）
+  ['clarity', 'sr', 'batch', 'aspect', 'res', 'seed', 'neg'].forEach((id) => {
+    ui.el(id)?.addEventListener('input', scheduleAdvisor);
+  });
   ui.el('surprise').onclick = () => {
     ui.el('prompt').value = pick(RANDOM_PROMPTS);
     refreshComposed();
@@ -982,6 +998,36 @@ function boot() {
     resolve: (job) => ensureUrl(itemsOf(job)[0]),
     compare: (aUrl, bUrl, caption) => ui.showCompare(aUrl, bUrl, caption, { left: 'A', right: 'B' }),
   });
+
+  // ---- 参数顾问：每个格子的「作用」+ 由本机历史标定后算出的推荐值 ----
+  advisor.init({
+    getSettings: () => ({
+      prompt: ui.el('prompt').value,
+      style: ui.el('style').value,
+      sampler: ui.el('sampler').value,
+      steps: +ui.el('steps').value || 0,
+      cfg: +ui.el('cfg').value || 0,
+      seed: +ui.el('seed').value,
+      res: ui.el('res').value,
+      aspect: ui.el('aspect').value,
+      batch: +ui.el('batch').value || 1,
+      clarity: ui.el('clarity').value,
+      sr: ui.el('sr').value,
+      neg: ui.el('neg').value,
+      strength: +ui.el('strength').value || 0.55,
+      hasInit: !!upload,
+    }),
+    getJobs: () => store.getState().jobs,
+    isFavorite: (id) => store.isFavorite(id),
+    onApply: () => {
+      ui.el('recipe').value = 'custom';
+      syncRecipe();
+      refreshComposed();
+      readSettings();
+      ui.toast('已采用推荐参数');
+    },
+  });
+  scheduleAdvisor();
 
   // ---- v7 shell: desktop panel tabs (persisted), mobile keeps full scroll ----
   shell.initShell();

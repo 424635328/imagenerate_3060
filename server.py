@@ -32,7 +32,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image, ImageOps
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from config import (
     ALLOW_ORIGINS, ALLOW_UPLOAD, ALLOWED_UPLOAD_FORMATS, API_TOKEN, CHUNK_SIZE,
@@ -178,7 +178,7 @@ class GenerateReq(BaseModel):
     upscale: bool = False
     highres: int = Field(default=0, ge=0, le=4096)
     enhance: int = Field(default=0, ge=0, le=4096)
-    sr_model: str = Field(default="ultrasharp", max_length=200)
+    sr_model: str = Field(default="ours", max_length=200)
     enhance_strength: float = Field(default=0.30, ge=0.0, le=0.95)
     enhance_steps: int = Field(default=0, ge=0, le=500)
     fast: bool = False
@@ -188,6 +188,23 @@ class GenerateReq(BaseModel):
     # img2img from the browser: compressed WebP/JPEG data URL or raw base64.
     init_image: str = Field(default="", max_length=MAX_UPLOAD_BYTES * 2)
     strength: float = Field(default=0.55, ge=0.05, le=0.95)
+
+    @field_validator("sr_model")
+    @classmethod
+    def _check_sr_model(cls, value: str) -> str:
+        """`sr_model` 是外部输入，且会被用来**打开文件** —— 必须在这里夹住。
+
+        原实现把它直接交给 `enhance.get_sr()`，等于允许客户端传任意路径；
+        现在只接受已注册的名字（ultrasharp/realesrgan/ours/ours_final）或 SR_DIR 内的相对文件名，
+        越界一律 422，错误信息不回显路径（见 AGENTS.md 的安全边界约定）。
+        """
+        try:
+            from enhance import resolve_sr_path
+            resolve_sr_path(value)
+        except ValueError:
+            from enhance import sr_model_names
+            raise ValueError(f"sr_model 只允许: {', '.join(sr_model_names())}")
+        return value
 
 
 class WarmupReq(BaseModel):

@@ -115,6 +115,9 @@ tools/_*.txt
 tools/_*.log
 *_log.txt
 research/*.tmp
+research/*.csv
+research/compare_*/
+research/eval_*/
 research/thumbs/
 research/served_index.html
 research/_*.js
@@ -159,3 +162,9 @@ functions-dist/
 #    python tools/check_paths.py        # 个人绝对路径与敏感串
 #    python research/final_check.py     # 脱敏总检（会打印 git 将提交的文件清单）
 # =============================================================================
+
+# ---------- 9. 评测产物：图与报告留本地，脚本入库 ----------
+research/fid_*/
+research/judge_*/
+research/sr_probe_*/
+research/*.png
