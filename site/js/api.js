@@ -60,6 +60,17 @@ export async function job(id) {
   return data;
 }
 
+/** Recent jobs on the backend — used to reconcile local history after a reload.
+ *  The gallery itself is local (localStorage); without this, a job submitted in
+ *  another tab/browser (or one that finished while this page was reloaded)
+ *  would never appear, and a local record could stay "running" forever. */
+export async function jobs(limit = 20) {
+  const r = await fetch(`${API}?op=jobs&limit=${encodeURIComponent(limit)}`, { cache: 'no-store' });
+  const data = await readJson(r);
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return Array.isArray(data.jobs) ? data.jobs : [];
+}
+
 /** Cancel a job that is still queued (running GPU work answers 409). */
 export async function cancelJob(id) {
   const r = await fetch(`${API}?op=cancel&id=${encodeURIComponent(id)}`, { method: 'POST' });

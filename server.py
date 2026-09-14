@@ -244,6 +244,19 @@ class GenerateReq(BaseModel):
 class WarmupReq(BaseModel):
     fast: bool = False
     sampler: str = Field(default="dpmpp2m_karras", max_length=32)
+    # 预热哪个版本（空 = 台账默认）。P3 的 promote 会用它在翻指针前把新版本热好。
+    adapter: str = Field(default="", max_length=40)
+
+    @field_validator("adapter")
+    @classmethod
+    def _check_adapter(cls, value: str) -> str:
+        if not value:
+            return ""
+        try:
+            config_resolve_adapter(value)
+        except ValueError:
+            raise ValueError(f"adapter 只允许: {', '.join(_adapter_slugs())}")
+        return value
 
 
 def _check_key(x_key: str = Header(default="", alias="X-API-Key")):
@@ -685,8 +698,19 @@ def health():
 
 @app.post("/warmup", dependencies=[Depends(_check_key)])
 async def do_warmup(req: WarmupReq):
-    """Load the pipeline now so the first generate does not pay cold start."""
-    info = await asyncio.to_thread(warmup, req.fast, req.sampler)
+    """Load the pipeline now so the first generate does not pay cold start.
+
+    `adapter` 为空时预热的是**台账默认版本**（不是写死的那份）—— 否则会出现
+    "热的是 A、生成用的是 B"，用户第一次点击仍要等一次重建。
+    """
+    slug = req.adapter or _default_adapter()
+    try:
+        adapter_path = str(config_resolve_adapter(slug))
+    except ValueError:
+        slug = _default_adapter()
+        adapter_path = str(config_resolve_adapter(slug))
+    info = await asyncio.to_thread(warmup, req.fast, req.sampler, adapter_path)
+    info["adapter"] = slug
     _idle.mark_active()
     return info
 

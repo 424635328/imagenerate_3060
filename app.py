@@ -140,10 +140,10 @@ def current_mode() -> dict:
             "adapter": _pipe_mode[2] if _pipe_mode and len(_pipe_mode) > 2 else None}
 
 
-def warmup(fast: bool = False, sampler: str = "dpmpp2m_karras") -> dict:
+def warmup(fast: bool = False, sampler: str = "dpmpp2m_karras", adapter_dir: str | None = None) -> dict:
     """预热管线：把首张图的 ~30 s 冷启动挪到用户点「生成」之前。"""
     t0 = time.time()
-    get_pipe(fast, sampler)
+    get_pipe(fast, sampler, adapter_dir)
     return {"loaded": True, "seconds": round(time.time() - t0, 2),
             "fast": bool(fast), "sampler": (sampler or "dpmpp2m_karras").lower()}
 
@@ -199,6 +199,26 @@ def _set_scheduler(pipe, sampler: str, fast: bool):
     return name if name in schedulers else "dpmpp2m_karras"
 
 
+def _default_adapter_dir() -> str:
+    """没指定版本时该用哪份权重 = **台账的 channels.default**（不是写死的 ADAPTER）。
+
+    踩过的坑：注册表化的 P2 之后，`/warmup` 仍按 `config.ADAPTER_DIR`（v4）预热，
+    而 `/generate` 按台账默认（v5b）出图 —— 用户点了「预热」，第一次生成还要再重建一次管线。
+    两处必须用同一个来源，否则热的是 A、用的是 B。
+    """
+    try:
+        from config import adapter_dir as _dir
+        from config import default_adapter as _default
+        return str(_dir(_default()))
+    except Exception:                      # 独立使用 app.py（无 config）时退回常量
+        return str(ADAPTER)
+
+
+def _resolve_adapter(adapter_dir: str | None) -> str:
+    """统一的版本解析：显式传入优先，否则台账默认。缓存键与加载必须都走这里。"""
+    return str(adapter_dir) if adapter_dir else _default_adapter_dir()
+
+
 def _build_pipe(fast: bool, sampler: str = "dpmpp2m_karras", adapter_dir: str | None = None):
     """构建质量或少步管线；fast 先合并风格 LoRA，再叠加 LCM/TCD LoRA。
 
@@ -213,7 +233,7 @@ def _build_pipe(fast: bool, sampler: str = "dpmpp2m_karras", adapter_dir: str | 
             from diffusers.utils import logging as _dl; _dl.disable_progress_bar()
             from transformers.utils import logging as _tl; _tl.disable_progress_bar()
         except Exception: pass
-    adapter_path = str(adapter_dir or ADAPTER)
+    adapter_path = _resolve_adapter(adapter_dir)
     # 加载前按台账校验权重哈希：不符就**拒绝加载**（宁可报错，也不静默用错权重）。
     # 本项目两次被"adapter 看起来加载了、其实没生效/不是那份"咬过，所以这条必须是硬门。
     try:
@@ -270,7 +290,7 @@ def get_pipe(fast: bool = False, sampler: str = "dpmpp2m_karras", adapter_dir: s
     表现都是"键与形状都对、出图却和基座逐位相同"。
     """
     global _pipe, _i2i, _pipe_mode, _i2i_mode
-    key = (bool(fast), (sampler or "dpmpp2m_karras").lower(), str(adapter_dir or ADAPTER))
+    key = (bool(fast), (sampler or "dpmpp2m_karras").lower(), _resolve_adapter(adapter_dir))
     if _pipe is None or _pipe_mode != key:
         if _pipe is not None:
             try: _pipe.remove_all_hooks()
@@ -284,7 +304,7 @@ def get_pipe(fast: bool = False, sampler: str = "dpmpp2m_karras", adapter_dir: s
 
 def get_i2i(fast: bool = False, sampler: str = "dpmpp2m_karras", adapter_dir: str | None = None):
     global _i2i, _i2i_mode
-    key = (bool(fast), (sampler or "dpmpp2m_karras").lower(), str(adapter_dir or ADAPTER))
+    key = (bool(fast), (sampler or "dpmpp2m_karras").lower(), _resolve_adapter(adapter_dir))
     if _i2i is None or _i2i_mode != key:
         from diffusers import StableDiffusionImg2ImgPipeline
         p = get_pipe(*key)

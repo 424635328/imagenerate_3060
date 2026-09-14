@@ -505,6 +505,79 @@ async function refreshHealth() {
   healthTimer = setTimeout(refreshHealth, document.hidden ? healthBackoff * 2 : healthBackoff);
 }
 
+/* ---------------------------------------------------------- reconciliation */
+
+/**
+ * Local history is localStorage-only, so it drifts from the backend in two ways
+ * that both look like "图怎么还没出来":
+ *   1. 页面在长任务（极清档 8 分钟很正常）中途刷新/关掉 → 本地记录永远停在 running，
+ *      画布一直占位符，而后端其实早就把图写好了（用 `op=jobs` 对账即可救回来）。
+ *   2. 在别的标签/浏览器提交的任务 → 本地根本没有记录，看不到也下载不了。
+ * 启动时对一次账：能救的救（heal），后端独有的收编（adopt），两边都没有的标过期。
+ */
+const TERMINAL = new Set(['done', 'failed', 'expired', 'cancelled']);
+
+function adoptRemoteJob(remote) {
+  const images = Array.from({ length: Math.max(1, remote.count || 1) }, (_, i) => ({
+    i, bytes: i === 0 ? (remote.bytes || 0) : 0,
+  }));
+  return {
+    id: remote.id, status: remote.status, seed: remote.seed, seeds: remote.seeds || [remote.seed],
+    count: remote.count || 1, steps: remote.steps, sampler: remote.sampler, res: remote.res,
+    prompt: remote.prompt, created: Math.round((remote.created || 0) * 1000) || Date.now(),
+    cached: !!remote.cached, seconds: remote.seconds || 0, adapter: remote.adapter,
+    info: remote.error ? `✗ ${remote.error}` : '↻ 从后端同步',
+    images, hasInit: !!remote.has_init,
+  };
+}
+
+async function reconcileHistory() {
+  let remote = [];
+  try {
+    remote = await api.jobs(20);
+  } catch {
+    return;                       // 后端不在线就保持原样，不打扰用户
+  }
+  if (!remote.length) return;
+  const local = store.getState().jobs;
+  const byId = new Map(local.map((job) => [job.id, job]));
+  const healedIds = [];
+  const adoptedIds = [];
+  remote.forEach((item) => {
+    const mine = byId.get(item.id);
+    if (!mine) {
+      if (item.status === 'done' && (item.bytes || 0) > 0) {
+        store.addJob(adoptRemoteJob(item));
+        adoptedIds.push(item.id);
+      }
+      return;
+    }
+    if (!TERMINAL.has(mine.status) && TERMINAL.has(item.status)) {
+      store.updateJob(item.id, {
+        status: item.status,
+        bytes: item.bytes, seconds: item.seconds,
+        adapter: item.adapter,
+        info: item.status === 'done' ? '↻ 已与后端对账：任务早已完成' : `✗ ${item.error || item.status}`,
+      });
+      healedIds.push(item.id);
+    }
+  });
+  if (healedIds.length || adoptedIds.length) {
+    store.save();
+    renderGallery();
+    ui.renderQueue(store.getState().jobs);
+    ui.log('reconcile', { healed: healedIds.length, adopted: adoptedIds.length });
+    // 画布优先显示**刚救回来的**那张：用户等的就是它（收编来的旧任务不该抢占画布）
+    const showId = healedIds[0] || adoptedIds[0];
+    await showByIndex(viewList().findIndex((v) => v.id === showId));
+    ui.toast(healedIds.length
+      ? `↻ 已找回 ${healedIds.length} 张后端已完成、本地没同步的图`
+      : `↻ 已同步 ${adoptedIds.length} 张后端历史`);
+  } else {
+    renderGallery();
+  }
+}
+
 /* ------------------------------------------------------------ share links */
 
 function encodeShare() {
@@ -1064,6 +1137,9 @@ function boot() {
 
   restore();
   refreshHealth();
+
+  // ---- 与后端对账：救回"后端已完成、本地卡在 running"的图（长任务中途刷新很常见）----
+  reconcileHistory().catch(() => {});
 
   // ---- ambient motion: scroll reveals + large-title header (CSS does looks) ----
   revealWatch = motion.initMotion();

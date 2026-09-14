@@ -256,12 +256,17 @@ class Handler(BaseHTTPRequestHandler):
         host = urlparse(origin).hostname or ""
         return host in ("127.0.0.1", "localhost", "::1")
 
-    def _reply(self, code: int, payload: dict) -> None:
+    def _reply(self, code: int, payload: dict, close: bool = False) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        if close:
+            # 没读完请求体就必须关连接：HTTP/1.1 的 keep-alive 会把残留的 body
+            # 当成下一个请求的开头，客户端直接拿到 ConnectionAbortedError（实测踩过）。
+            self.send_header("Connection", "close")
+            self.close_connection = True
         self._cors()
         self.end_headers()
         self.wfile.write(body)
@@ -338,13 +343,13 @@ class Handler(BaseHTTPRequestHandler):
         origin = self.headers.get("Origin")
         if origin and not self._origin_ok(origin):
             self._log(f"拒绝跨站提交：Origin={origin}")
-            self._reply(403, {"ok": False, "error": f"Origin 不在白名单：{origin}"})
+            self._reply(403, {"ok": False, "error": f"Origin 不在白名单：{origin}"}, close=True)
             return
         if not origin and _state["strict"]:
-            self._reply(403, {"ok": False, "error": "JUDGE_STRICT=1 时必须有 Origin"})
+            self._reply(403, {"ok": False, "error": "JUDGE_STRICT=1 时必须有 Origin"}, close=True)
             return
         if not (self.headers.get("Content-Type") or "").lower().startswith("application/json"):
-            self._reply(415, {"ok": False, "error": "Content-Type 必须是 application/json"})
+            self._reply(415, {"ok": False, "error": "Content-Type 必须是 application/json"}, close=True)
             return
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -355,7 +360,9 @@ class Handler(BaseHTTPRequestHandler):
             self._reply(400, {"ok": False, "error": "空 body"})
             return
         if length > MAX_BODY:
-            self._reply(413, {"ok": False, "error": f"body 超过 {MAX_BODY} 字节（收到 {length}）"})
+            # 不读这具超大 body，直接拒并关连接（否则 keep-alive 会被残留数据污染）
+            self._reply(413, {"ok": False, "error": f"body 超过 {MAX_BODY} 字节（收到 {length}）"},
+                        close=True)
             return
         raw = self.rfile.read(length)
         try:

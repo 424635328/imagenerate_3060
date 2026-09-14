@@ -94,7 +94,12 @@ def main() -> int:
     check("_gen_one 与 get_pipe/get_i2i 都接受 adapter_dir",
           "adapter_dir=None" in app_src and app_src.count("adapter_dir") >= 4)
     check("管线缓存键含版本（切版本必须重建）",
-          "str(adapter_dir or ADAPTER)" in app_src)
+          app_src.count("_resolve_adapter(adapter_dir)") >= 2)
+    check("没指定版本时用的是**台账默认**（否则预热热 A、生成用 B）",
+          "_default_adapter_dir()" in app_src and "default_adapter" in app_src)
+    check("/warmup 支持指定版本（P3 的 promote 要预热新版本）",
+          'adapter: str = Field(default="", max_length=40)' in server_src
+          and "warmup, req.fast, req.sampler, adapter_path" in server_src)
     check("/health 报告当前驻留的版本",
           '"adapter": _pipe_mode[2]' in app_src and "current_mode().get(\"adapter\")" in server_src)
     check("任务元数据带 adapter（前端/历史可追溯）", '"adapter": job.get("adapter")' in server_src)

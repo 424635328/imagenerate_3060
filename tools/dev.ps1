@@ -95,6 +95,10 @@ switch ($Task) {
     node tools\smoke_versions.mjs
     if ($LASTEXITCODE -eq 0) { Ok 'versions page' } else { $fail++ }
 
+    Say '前端与后端对账（长任务中途刷新也能找回图片）'
+    node tools\smoke_reconcile.mjs
+    if ($LASTEXITCODE -eq 0) { Ok 'reconcile' } else { $fail++ }
+
     Say '人工评判收集器（回环 / 跨站防护 / 独立重算 / 非 UTF-8 控制台回归）'
     & $Python tools\test_judge_collector.py
     if ($LASTEXITCODE -eq 0) { Ok 'judge collector' } else { $fail++ }
