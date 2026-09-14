@@ -1,0 +1,937 @@
+{
+ "schema": 1,
+ "kind": "human_verdicts",
+ "received_at": "2026-09-14T14:57:12+00:00",
+ "origin": "http://127.0.0.1:8787",
+ "source": "site/versions.html（人工盲测）",
+ "client": {
+  "url": "http://127.0.0.1:8787/versions.html",
+  "submitted_at": "2026-09-14T14:57:12.916Z",
+  "blind_default": true
+ },
+ "protocol": {
+  "prompt_set": "留出提示词（未参与任何训练）",
+  "prompt_count": 24,
+  "seeds": [
+   101,
+   108
+  ],
+  "res": 512,
+  "steps": 24,
+  "cfg": 7.5,
+  "aligned": "同一 (prompt, seed) 下初始噪声逐位相同 ⇒ 可逐像素对照",
+  "alignment": {
+   "method": "8×8 灰度低频结构的皮尔逊相关（64 维）",
+   "cross_version_r": 0.918,
+   "cross_version_p10": 0.806,
+   "different_seed_r": -0.074,
+   "different_prompt_r": 0.55,
+   "n_trials": 144
+  },
+  "sources": [
+   "research/fid_v6/",
+   "research/fid_v6/fid_metrics.csv",
+   "research/eval_val.csv",
+   "research/judge_final/",
+   "research/sr_probe_final/"
+  ],
+  "note": "全部图片来自同一次生成（research/judge_final/images 与 research/fid_v6 逐字节同源）。"
+ },
+ "versions": [
+  "V4",
+  "V5",
+  "V5b",
+  "V6q"
+ ],
+ "records": [
+  {
+   "prompt_index": 0,
+   "seed": 101,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V5",
+    "V5b",
+    "V4"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:52:08.208Z"
+  },
+  {
+   "prompt_index": 0,
+   "seed": 108,
+   "tie": false,
+   "winner": "V5b",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V5b",
+    "V6q",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:52:16.638Z"
+  },
+  {
+   "prompt_index": 1,
+   "seed": 101,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5",
+    "V6q",
+    "V5b",
+    "V4"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:52:19.458Z"
+  },
+  {
+   "prompt_index": 1,
+   "seed": 108,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V5b",
+    "V6q",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:52:33.501Z"
+  },
+  {
+   "prompt_index": 2,
+   "seed": 101,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V5",
+    "V4",
+    "V6q"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:52:38.468Z"
+  },
+  {
+   "prompt_index": 2,
+   "seed": 108,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V4",
+    "V6q",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:53:05.094Z"
+  },
+  {
+   "prompt_index": 3,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V5b",
+    "V6q",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:53:15.145Z"
+  },
+  {
+   "prompt_index": 3,
+   "seed": 108,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V6q",
+    "V5b",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:53:18.751Z"
+  },
+  {
+   "prompt_index": 4,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5b",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V4",
+    "V5",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:53:23.804Z"
+  },
+  {
+   "prompt_index": 4,
+   "seed": 108,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V4",
+    "V5b",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:53:30.134Z"
+  },
+  {
+   "prompt_index": 5,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V4",
+    "V5",
+    "V6q"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:53:38.366Z"
+  },
+  {
+   "prompt_index": 5,
+   "seed": 108,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V4",
+    "V5",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:53:41.814Z"
+  },
+  {
+   "prompt_index": 6,
+   "seed": 101,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V5b",
+    "V6q",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:53:46.224Z"
+  },
+  {
+   "prompt_index": 6,
+   "seed": 108,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V4",
+    "V5",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:53:56.528Z"
+  },
+  {
+   "prompt_index": 7,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V4",
+    "V5",
+    "V6q"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:54:03.055Z"
+  },
+  {
+   "prompt_index": 7,
+   "seed": 108,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V5",
+    "V6q",
+    "V4"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:54:09.108Z"
+  },
+  {
+   "prompt_index": 8,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5b",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V5b",
+    "V5",
+    "V6q"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:54:12.098Z"
+  },
+  {
+   "prompt_index": 8,
+   "seed": 108,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5",
+    "V6q",
+    "V5b",
+    "V4"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:54:15.611Z"
+  },
+  {
+   "prompt_index": 9,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5b",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V4",
+    "V6q",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:54:23.501Z"
+  },
+  {
+   "prompt_index": 9,
+   "seed": 108,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V5",
+    "V6q",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:54:32.130Z"
+  },
+  {
+   "prompt_index": 10,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5b",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5",
+    "V4",
+    "V6q",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:54:55.514Z"
+  },
+  {
+   "prompt_index": 10,
+   "seed": 108,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5",
+    "V4",
+    "V6q",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:54:58.879Z"
+  },
+  {
+   "prompt_index": 11,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V5",
+    "V6q",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:55:07.563Z"
+  },
+  {
+   "prompt_index": 11,
+   "seed": 108,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5",
+    "V6q",
+    "V5b",
+    "V4"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:55:12.322Z"
+  },
+  {
+   "prompt_index": 12,
+   "seed": 101,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V6q",
+    "V5",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:55:15.205Z"
+  },
+  {
+   "prompt_index": 12,
+   "seed": 108,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V6q",
+    "V4",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:55:25.333Z"
+  },
+  {
+   "prompt_index": 13,
+   "seed": 101,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V6q",
+    "V5",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:55:27.855Z"
+  },
+  {
+   "prompt_index": 13,
+   "seed": 108,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V4",
+    "V5",
+    "V6q"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:55:31.747Z"
+  },
+  {
+   "prompt_index": 14,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5",
+    "V5b",
+    "V4",
+    "V6q"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:55:34.127Z"
+  },
+  {
+   "prompt_index": 14,
+   "seed": 108,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V5b",
+    "V4",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:55:46.867Z"
+  },
+  {
+   "prompt_index": 15,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V5b",
+    "V5",
+    "V6q"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:55:52.424Z"
+  },
+  {
+   "prompt_index": 15,
+   "seed": 108,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V4",
+    "V6q",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:55:54.300Z"
+  },
+  {
+   "prompt_index": 16,
+   "seed": 101,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V5",
+    "V5b",
+    "V4"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:06.131Z"
+  },
+  {
+   "prompt_index": 16,
+   "seed": 108,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V4",
+    "V5",
+    "V6q"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:08.496Z"
+  },
+  {
+   "prompt_index": 17,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5b",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V5",
+    "V5b",
+    "V4"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:14.427Z"
+  },
+  {
+   "prompt_index": 17,
+   "seed": 108,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V6q",
+    "V4",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:16.486Z"
+  },
+  {
+   "prompt_index": 18,
+   "seed": 101,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V6q",
+    "V5",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:20.040Z"
+  },
+  {
+   "prompt_index": 18,
+   "seed": 108,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V5",
+    "V6q",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:24.061Z"
+  },
+  {
+   "prompt_index": 19,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V5",
+    "V4",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:30.573Z"
+  },
+  {
+   "prompt_index": 19,
+   "seed": 108,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V5",
+    "V5b",
+    "V4"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:35.606Z"
+  },
+  {
+   "prompt_index": 20,
+   "seed": 101,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V5b",
+    "V5",
+    "V4"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:37.335Z"
+  },
+  {
+   "prompt_index": 20,
+   "seed": 108,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V4",
+    "V6q",
+    "V5"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:41.513Z"
+  },
+  {
+   "prompt_index": 21,
+   "seed": 101,
+   "tie": false,
+   "winner": "V4",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V5",
+    "V6q",
+    "V4"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:48.319Z"
+  },
+  {
+   "prompt_index": 21,
+   "seed": 108,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V4",
+    "V5",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:52.993Z"
+  },
+  {
+   "prompt_index": 22,
+   "seed": 101,
+   "tie": false,
+   "winner": "V5",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V6q",
+    "V4",
+    "V5",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:56:57.364Z"
+  },
+  {
+   "prompt_index": 22,
+   "seed": 108,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V6q",
+    "V5",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:57:00.246Z"
+  },
+  {
+   "prompt_index": 23,
+   "seed": 101,
+   "tie": false,
+   "winner": "V6q",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V5b",
+    "V4",
+    "V5",
+    "V6q"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:57:02.843Z"
+  },
+  {
+   "prompt_index": 23,
+   "seed": 108,
+   "tie": false,
+   "winner": "V5b",
+   "mode": "blind4",
+   "blind": true,
+   "order": [
+    "V4",
+    "V6q",
+    "V5",
+    "V5b"
+   ],
+   "pair": null,
+   "at": "2026-09-14T14:57:09.689Z"
+  }
+ ],
+ "summary": {
+  "prompt_count": 24,
+  "modes": {
+   "blind4": {
+    "decided": 48,
+    "ties": 0,
+    "versions": [
+     {
+      "version": "V5",
+      "wins": 15,
+      "decided": 48,
+      "rate": 0.3125,
+      "ci": [
+       0.1995,
+       0.4533
+      ],
+      "chance": 0.25,
+      "indistinguishable": true
+     },
+     {
+      "version": "V4",
+      "wins": 14,
+      "decided": 48,
+      "rate": 0.2917,
+      "ci": [
+       0.1824,
+       0.4318
+      ],
+      "chance": 0.25,
+      "indistinguishable": true
+     },
+     {
+      "version": "V6q",
+      "wins": 12,
+      "decided": 48,
+      "rate": 0.25,
+      "ci": [
+       0.1492,
+       0.3878
+      ],
+      "chance": 0.25,
+      "indistinguishable": true
+     },
+     {
+      "version": "V5b",
+      "wins": 7,
+      "decided": 48,
+      "rate": 0.1458,
+      "ci": [
+       0.0725,
+       0.2717
+      ],
+      "chance": 0.25,
+      "indistinguishable": true
+     }
+    ]
+   }
+  },
+  "headline": "已决 48 题：没有任何版本显著高于随机期望 ⇒ 按本项目判据记为「无法区分」，与机器判据的结论一致。"
+ },
+ "page_summary": {
+  "schema": 1,
+  "decided_total": 48,
+  "modes": {
+   "blind4": {
+    "decided": 48,
+    "ties": 0,
+    "versions": [
+     {
+      "version": "V4",
+      "wins": 14,
+      "decided": 48,
+      "rate": 0.2916666666666667,
+      "ci": [
+       0.18241416061863377,
+       0.43179527736167544
+      ],
+      "chance": 0.25,
+      "indistinguishable": true
+     },
+     {
+      "version": "V5",
+      "wins": 15,
+      "decided": 48,
+      "rate": 0.3125,
+      "ci": [
+       0.19945512167731494,
+       0.4533333725049633
+      ],
+      "chance": 0.25,
+      "indistinguishable": true
+     },
+     {
+      "version": "V5b",
+      "wins": 7,
+      "decided": 48,
+      "rate": 0.14583333333333334,
+      "ci": [
+       0.07248157413793963,
+       0.27167447042858606
+      ],
+      "chance": 0.25,
+      "indistinguishable": true
+     },
+     {
+      "version": "V6q",
+      "wins": 12,
+      "decided": 48,
+      "rate": 0.25,
+      "ci": [
+       0.1492048880971003,
+       0.3878464374792707
+      ],
+      "chance": 0.25,
+      "indistinguishable": true
+     }
+    ]
+   }
+  },
+  "headline": "已决 48 题：没有任何版本显著高于随机期望 ⇒ 按本项目判据记为「无法区分」。"
+ }
+}

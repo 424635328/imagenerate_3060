@@ -218,6 +218,40 @@ def main() -> int:
         lines.append("_缺失（`tools/vlm_judge.py` 尚未产出）_")
 
     lines += ["", "## 5. 结论", ""]
+    # 人工判据（版本评判台盲测）：机器判据只剩三条时，这是补上的第四条。
+    human_path = ROOT / "research" / "human_verdict.json"
+    if human_path.exists():
+        human = json.loads(human_path.read_text(encoding="utf-8"))
+        rows = "\n".join(
+            f"| {row['version']} | {row['wins']} / {row['decided']} | {row['rate'] * 100:.1f}% | "
+            f"{row['ci'][0] * 100:.1f}% – {row['ci'][1] * 100:.1f}% | "
+            f"{'无法区分' if row['indistinguishable'] else '**显著高于随机**'} |"
+            for row in sorted(human["versions"], key=lambda r: -r["rate"]))
+        lines += [
+            "### 5.1 人工判据（盲测，见 `docs/HUMAN_VERDICT.md`）",
+            "",
+            f"{human['headline']}",
+            "",
+            "| 版本 | 被选中 | 占比 | Wilson 95% | 判定 |",
+            "|---|---|---|---|---|",
+            rows,
+            "",
+            f"> 方法自检：位置偏置 A/B/C/D = "
+            f"{human['position']['counts']['A']}/{human['position']['counts']['B']}/"
+            f"{human['position']['counts']['C']}/{human['position']['counts']['D']}"
+            f"（卡方 {human['position']['chi2']}）⇒ "
+            + ("无显著位置偏好，判据有效" if not human["position"]["biased"] else "存在位置偏好")
+            + f"；跨 seed 一致性 {human['cross_seed']['same_pick']}/"
+              f"{human['cross_seed']['prompts_with_two_seeds']}"
+              f"（随机期望 25%）。",
+            f"> 边界：{human['decided']} 题只能查出约 40% 以上的偏好（功效 "
+            + "，".join(f"{k}%→{v * 100:.0f}%" for k, v in human["power"].items())
+            + "），所以「无法区分」≠「一样好」。",
+            "",
+        ]
+    else:
+        lines += ["_人工判据尚未提交：`python tools/judge_collector.py` → 页面盲测 → 提交，"
+                  "再跑 `python tools/human_verdict.py`。_", ""]
     lines += [
         "判定原则（写在前面，避免事后解释）：",
         "",

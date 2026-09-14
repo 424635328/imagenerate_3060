@@ -77,13 +77,18 @@ const check = (name, ok, detail = '') => results.push({ name, ok: !!ok, detail }
 const python = process.env.PYTHON || 'python';
 
 const before = existsSync(OUT_DIR) ? new Set(readdirSync(OUT_DIR)) : new Set();
-mkdirSync(OUT_DIR, { recursive: true });
 
 /* --------------------------------------------------------------- 起服务 */
 // 只起**一个**进程：评判服务自己就把 site/ 发出去（页面与提交接口同源）。
+// ⚠️ 落盘目录必须**与真实证据目录隔离**：这是自动化点出来的 4 条记录，
+// 混进 research/human_judge/ 会污染人工判据（真实发生过：门禁报 "48 vs 52"）。
+// 收集器要求目录在项目内，所以用一个临时目录，跑完即删。
+const E2E_OUT = path.join(ROOT, 'research', `_e2e_judge_${Date.now()}`);
+mkdirSync(E2E_OUT, { recursive: true });
 const judgePort = await freePort();
-const collector = spawn(python, [path.join(ROOT, 'tools', 'judge_collector.py'), '--port', String(judgePort)],
-  { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+const collector = spawn(python, [path.join(ROOT, 'tools', 'judge_collector.py'),
+  '--port', String(judgePort), '--out', E2E_OUT],
+{ cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
 let collectorLog = '';
 collector.stdout.on('data', (chunk) => { collectorLog += chunk.toString(); });
 collector.stderr.on('data', (chunk) => { collectorLog += chunk.toString(); });
@@ -103,6 +108,7 @@ const cleanup = () => {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try { rmSync(profile, { recursive: true, force: true }); break; } catch { /* 稍后再试 */ }
   }
+  try { rmSync(E2E_OUT, { recursive: true, force: true }); } catch { /* 已删 */ }
 };
 process.on('exit', cleanup);
 
@@ -232,11 +238,11 @@ async function run() {
   }
   check('E2E: 界面回报「已提交」并给出文件名', /已提交/.test(note) && /verdicts_/.test(note), note.slice(0, 140));
 
-  const files = readdirSync(OUT_DIR).filter((f) => f.startsWith('verdicts_') && f.endsWith('.json'));
+  const files = readdirSync(E2E_OUT).filter((f) => f.startsWith('verdicts_') && f.endsWith('.json'));
   const fresh = files.filter((f) => !before.has(f));
   check('E2E: 仓库里确实多出一份评判文件', fresh.length >= 1, `新增 ${fresh.length} 份`);
   if (fresh.length) {
-    const newest = fresh.map((f) => path.join(OUT_DIR, f))
+    const newest = fresh.map((f) => path.join(E2E_OUT, f))
       .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
     const saved = JSON.parse(readFileSync(newest, 'utf8'));
     check('E2E: 文件里是 4 条记录', saved.records?.length === 4, String(saved.records?.length));
@@ -263,9 +269,15 @@ try {
   cleanup();
 }
 
-/** 收尾自检：确认没有把浏览器/服务留在后台（残留会被下一轮复用，污染结果）。 */
+/** 收尾自检：确认没有把浏览器/服务留在后台（残留会被下一轮复用，污染结果），
+ *  并且**没有污染真实的人工判据目录**（这条是门禁报 "48 vs 52" 后补上的）。 */
 const leaked = readdirSync(process.env.TEMP || '/tmp').filter((name) => name.startsWith('lsart-e2e-'));
 check('E2E: 没有留下后台浏览器与临时 profile', leaked.length === 0, leaked.join(', '));
+const after = existsSync(OUT_DIR) ? readdirSync(OUT_DIR) : [];
+const polluted = after.filter((name) => !before.has(name));
+check('E2E: 没有污染 research/human_judge/（自动化记录必须写到别处）', polluted.length === 0,
+  polluted.join(', '));
+check('E2E: 临时落盘目录已清理', !existsSync(E2E_OUT));
 
 const failed = results.filter((row) => !row.ok);
 results.forEach((row) => console.log(`${row.ok ? 'PASS' : 'FAIL'}  ${row.name}${row.ok || !row.detail ? '' : `  → ${row.detail}`}`));

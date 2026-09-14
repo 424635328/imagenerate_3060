@@ -103,6 +103,10 @@ switch ($Task) {
     node tools\test_judge_submit_e2e.mjs
     if ($LASTEXITCODE -eq 0) { Ok 'submit e2e' } else { $fail++ }
 
+    Say '人工评判结果（可复算 / 不自夸 / 可重生成）'
+    & $Python tools\test_human_verdict.py
+    if ($LASTEXITCODE -eq 0) { Ok 'human verdict' } else { $fail++ }
+
     Say '路径与敏感串'
     & $Python tools\check_paths.py
     if ($LASTEXITCODE -eq 0) { Ok 'paths' } else { $fail++ }

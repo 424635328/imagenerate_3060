@@ -1,0 +1,87 @@
+{
+ "schema": 1,
+ "kind": "human_verdict_summary",
+ "sources": [
+  "verdicts_20260914-225712_4de1.json"
+ ],
+ "records": 48,
+ "decided": 48,
+ "ties": 0,
+ "versions": [
+  {
+   "version": "V4",
+   "wins": 14,
+   "decided": 48,
+   "rate": 0.2917,
+   "ci": [
+    0.1824,
+    0.4318
+   ],
+   "chance": 0.25,
+   "indistinguishable": true
+  },
+  {
+   "version": "V5",
+   "wins": 15,
+   "decided": 48,
+   "rate": 0.3125,
+   "ci": [
+    0.1995,
+    0.4533
+   ],
+   "chance": 0.25,
+   "indistinguishable": true
+  },
+  {
+   "version": "V5b",
+   "wins": 7,
+   "decided": 48,
+   "rate": 0.1458,
+   "ci": [
+    0.0725,
+    0.2717
+   ],
+   "chance": 0.25,
+   "indistinguishable": true
+  },
+  {
+   "version": "V6q",
+   "wins": 12,
+   "decided": 48,
+   "rate": 0.25,
+   "ci": [
+    0.1492,
+    0.3878
+   ],
+   "chance": 0.25,
+   "indistinguishable": true
+  }
+ ],
+ "chi2": 3.167,
+ "chi2_critical": 7.815,
+ "uniform_not_rejected": true,
+ "position": {
+  "counts": {
+   "A": 8,
+   "B": 10,
+   "C": 13,
+   "D": 17
+  },
+  "chi2": 3.833,
+  "biased": false
+ },
+ "cross_seed": {
+  "prompts_with_two_seeds": 24,
+  "same_pick": 6,
+  "rate": 0.25,
+  "chance": 0.25
+ },
+ "power": {
+  "30": 0.126,
+  "35": 0.36,
+  "40": 0.67,
+  "50": 0.979
+ },
+ "any_significant": false,
+ "headline": "已决 48 题：四个版本的 95% 区间都包含随机期望 25%（卡方 3.167 < 7.815）⇒ 记为「无法区分」。"
+}
