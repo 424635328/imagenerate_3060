@@ -485,6 +485,38 @@ function onExport() {
 
 /* ------------------------------------------------------------------ 启动 */
 
+/** 载入失败时必须"说清楚"，不能留一个转圈的「载入中…」让人以为后端挂了。
+ *  这一页是纯静态的：不需要后端、不需要隧道；失败只会来自网络/缓存/代理。 */
+function renderLoadFailure(error) {
+  const badge = $('#vbCorpus');
+  if (badge) { badge.textContent = '载入失败'; badge.classList.add('bad'); }
+  const stage = $('#vbStage');
+  if (stage) {
+    stage.innerHTML = `
+      <div class="vb-fail">
+        <h3>没能读到 <code>data/versions.json</code></h3>
+        <p class="vb-fail-err">${escapeHtml(String(error && error.message ? error.message : error))}</p>
+        <p><b>这一页是纯静态的，不需要后端、也不需要隧道</b>；打不开只可能是网络、代理或浏览器缓存。
+           按顺序试：</p>
+        <ol>
+          <li><button type="button" class="btn ghost tiny" id="vbRetry">重试</button>
+              点一下重新拉取（不做整页刷新）</li>
+          <li>硬刷新：<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>（Mac：<kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>R</kbd>），
+              绕过 Service Worker 与缓存</li>
+          <li>看<b>零 JS 静态画廊</b>：<a href="gallery.html">/gallery</a>
+              （无脚本、自包含，任何浏览器都能开）</li>
+          <li>本机仓库里直接双击 <code>site/gallery.html</code>：连网络都不需要</li>
+        </ol>
+        <p class="muted">如果你的浏览器走了 127.0.0.1:7890 代理而该代理已失效，
+          本站会整体打不开（与本项目后端无关）。</p>
+      </div>`;
+    const retry = $('#vbRetry');
+    if (retry) retry.onclick = () => window.location.reload();
+  }
+  const progress = $('#vbProgressLabel');
+  if (progress) progress.textContent = '未载入';
+}
+
 async function boot() {
   const theme = store.getState().theme;
   document.documentElement.dataset.theme = theme;
@@ -495,7 +527,7 @@ async function boot() {
     const response = await fetch('/data/versions.json', { cache: 'no-cache' });
     data = await response.json();
   } catch (error) {
-    $('#vbStage').innerHTML = `<p class="vb-note">无法载入 /data/versions.json：${error}</p>`;
+    renderLoadFailure(error);
     return;
   }
   state.data = data;
@@ -534,6 +566,7 @@ async function boot() {
       else if (target.dataset.pair) recordPair(target.dataset.pair);
       else if (target.dataset.swap) {
         [state.wipeA, state.wipeB] = [state.wipeB, state.wipeA];
+        renderControls();     // 两个下拉框必须跟着换，否则显示的 A/B 与实际叠图不符
         renderWipe();
       } else if (target.dataset.setA) { state.wipeA = target.dataset.setA; state.mode = 'wipe'; renderAll(); }
       else if (target.dataset.setB) { state.wipeB = target.dataset.setB; state.mode = 'wipe'; renderAll(); }

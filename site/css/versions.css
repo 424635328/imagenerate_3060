@@ -263,6 +263,29 @@
 .vb-foot { margin: 10px 0 0; font-size: 12px; line-height: 1.7; }
 .vb-foot b { color: var(--text); }
 
+/* ------------------------------------------------------------ 载入失败 */
+/* 纯静态页面不该出现"转圈的载入中"：失败就要说清楚原因与下一步。 */
+.vb-fail {
+  border: 1px solid #fb718540;
+  background: #fb718514;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.75;
+}
+.vb-fail h3 { margin: 0 0 8px; font-size: 15px; color: var(--bad); }
+.vb-fail-err {
+  font: 12px/1.6 ui-monospace, Consolas, monospace;
+  background: #00000059;
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: var(--text);
+  word-break: break-all;
+}
+.vb-fail ol { margin: 8px 0; padding-left: 22px; }
+.vb-fail li { margin-bottom: 5px; }
+.vb-fail code { background: #00000059; padding: 1px 5px; border-radius: 5px; }
+
 /* ---------------------------------------------------------------- 放大 */
 
 .vb-zoom {

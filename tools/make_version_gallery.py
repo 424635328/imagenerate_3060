@@ -279,6 +279,187 @@ def measure_alignment(versions: list[dict]) -> dict:
     }
 
 
+def render_static_gallery(payload: dict, versions: list[dict], sr_rows: int) -> str:
+    """生成**零 JS、自包含**的静态画廊（site/gallery.html）。
+
+    为什么要它：`versions.html` 要做盲测与擦除对照，必须有 JS；但"打不开"这件事
+    不该由 JS、Service Worker、缓存或网络任何一环来决定。这个页面只用 HTML + 内联 CSS
+    + 相对路径的 <img>：
+      · 无脚本、无 fetch、无外部样式表 ⇒ 任何一个浏览器都能渲染；
+      · 图片走相对路径 ⇒ 直接用 file:// 双击打开也能看（离线、无网、无服务端都行）。
+
+    代价是没法盲测/擦除 —— 所以它是"保底可看"，交互判据仍在 versions.html。
+    """
+    version_ids = [v["id"] for v in versions]
+    seeds = payload["protocol"]["seeds"]
+    prompts = payload["prompts"]
+    align = payload["protocol"]["alignment"]
+    judge = payload["judge"]
+
+    def esc(text: str) -> str:
+        return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+    def metrics_line(version: dict) -> str:
+        parts = [f"KID {version['kid']:.6f}", f"CLIP {version['clip_score']:.4f}",
+                 f"细节量 {version['sharpness']:.0f}",
+                 f"TE {'微调过' if version['text_encoder'] == 'fine-tuned' else '基座'}"]
+        if version["val_mse"] is not None:
+            parts.insert(0, f"val {version['val_mse']:.6f}")
+        else:
+            parts.insert(0, "val 不可比")
+        return " · ".join(parts)
+
+    def section(prompt_index: int) -> str:
+        rows = []
+        for seed in seeds:
+            cells = "".join(
+                f'<figure class="cell"><img loading="lazy" decoding="async" width="512" height="512" '
+                f'alt="{vid} 第 {prompt_index + 1} 题 seed {seed}" '
+                f'src="img/versions/{vid}/p{prompt_index:02d}_s{seed}.webp">'
+                f'<figcaption><b>{vid}</b><span>{version_by_id[vid]["slogan"]}</span>'
+                f'<em>{metrics_line(version_by_id[vid])}</em></figcaption></figure>'
+                for vid in version_ids)
+            rows.append(f'<div class="seedrow"><h3>seed {seed}</h3><div class="grid">{cells}</div></div>')
+        return (f'<section class="prompt"><h2><span class="no">第 {prompt_index + 1} 题</span> '
+                f'{esc(prompts[prompt_index])}</h2>{"".join(rows)}</section>')
+
+    version_by_id = {v["id"]: v for v in versions}
+
+    metric_head = "".join(f"<th>{c['label']}</th>" for c in payload["columns"])
+    metric_rows = ""
+    for version in versions:
+        cells = []
+        for column in payload["columns"]:
+            if column["key"] == "text_encoder":
+                cells.append("<td>" + ("微调过" if version["text_encoder"] == "fine-tuned" else "基座") + "</td>")
+                continue
+            value = version[column["key"]]
+            cells.append("<td>—（不可比）</td>" if value is None
+                         else f"<td>{value:.{column['digits']}f}</td>")
+        metric_rows += (f"<tr><td>{version['label']} <span class='tag'>{version['slogan']}</span></td>"
+                        f"{''.join(cells)}</tr>")
+
+    sr_cells = "".join(
+        f'<div class="srcol{" hr" if col["key"] == "hr" else ""}"><h4>{col["label"]}</h4>' + "".join(
+            f'<img loading="lazy" decoding="async" alt="{col["label"]} 样本 {row + 1}" '
+            f'src="img/versions/sr/{col["key"]}_r{row:02d}.webp">' for row in range(sr_rows))
+        + "</div>"
+        for col in payload["sr"]["columns"])
+
+    sr_rows_html = "".join(
+        f'<tr><td>{row["label"]}</td><td>{row["detail_ratio"]:.2f}×</td>'
+        f'<td>{row["psnr_delta_db"]:+.2f} dB</td></tr>' for row in payload["sr"]["metrics"]["rows"])
+
+    conclusion = "".join(f"<li>{esc(point).replace('**', '')}</li>" for point in payload["conclusion"]["points"])
+
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>版本画廊（静态·无需 JS） · LANDSCAPE·ART</title>
+<style>
+  :root {{ color-scheme: dark; }}
+  * {{ box-sizing: border-box; }}
+  body {{ margin: 0; background: #07070c; color: #eef1f8;
+         font: 15px/1.6 system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif; }}
+  .wrap {{ max-width: 1400px; margin: 0 auto; padding: 20px 22px 60px; }}
+  h1 {{ font-size: 26px; margin: 0 0 4px;
+        background: linear-gradient(100deg, #fff, #b9a8ff 55%, #7fe7f7);
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }}
+  h2 {{ font-size: 17px; margin: 26px 0 10px; }}
+  h3 {{ font-size: 12px; color: #8b93a7; margin: 10px 0 6px; font-weight: 600; letter-spacing: .08em; }}
+  h4 {{ font-size: 11.5px; color: #8b93a7; margin: 0 0 6px; text-align: center; }}
+  p {{ margin: 6px 0; }}
+  a {{ color: #7c5cff; }}
+  .card {{ background: #0e0e17; border: 1px solid #252535; border-radius: 16px;
+           padding: 16px 18px; margin: 14px 0; }}
+  .lead {{ color: #8b93a7; font-size: 13px; margin: 0; }}
+  .badge {{ display: inline-block; font-size: 11.5px; padding: 3px 9px; border-radius: 999px;
+            border: 1px solid #33334a; color: #8b93a7; margin-left: 8px; }}
+  .warn {{ border-color: #fb718540; background: #fb718514; font-size: 13px; }}
+  .warn b {{ color: #fb7185; }}
+  table {{ width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }}
+  th, td {{ text-align: right; padding: 6px 9px; border-bottom: 1px solid #252535; white-space: nowrap; }}
+  th:first-child, td:first-child {{ text-align: left; }}
+  th {{ color: #8b93a7; font-weight: 600; }}
+  .tag {{ font-size: 10.5px; color: #8b93a7; border: 1px solid #252535;
+          border-radius: 999px; padding: 1px 6px; margin-left: 6px; }}
+  .grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }}
+  .cell {{ margin: 0; border: 1px solid #252535; border-radius: 14px; overflow: hidden; background: #0e0e17; }}
+  .cell img {{ display: block; width: 100%; height: auto; background: #1c1c2a; }}
+  figcaption {{ padding: 7px 9px 9px; display: grid; gap: 2px; }}
+  figcaption b {{ font-size: 13px; }}
+  figcaption span {{ font-size: 11.5px; color: #8b93a7; }}
+  figcaption em {{ font-size: 11px; color: #8b93a7; font-style: normal; }}
+  .no {{ color: #7c5cff; font-size: 12.5px; margin-right: 8px; }}
+  .srgrid {{ display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 10px; }}
+  .srcol img {{ width: 100%; height: auto; border-radius: 8px; background: #1c1c2a; display: block; margin-bottom: 6px; }}
+  .srcol.hr h4 {{ color: #22d3ee; }}
+  .foot {{ color: #8b93a7; font-size: 12px; }}
+  code {{ background: #14141f; padding: 1px 5px; border-radius: 5px; font-size: 12px; }}
+  @media (max-width: 1100px) {{ .grid {{ grid-template-columns: repeat(2, 1fr); }}
+                                .srgrid {{ grid-template-columns: repeat(3, 1fr); }} }}
+  @media (max-width: 640px) {{ .grid {{ grid-template-columns: 1fr; }}
+                               .srgrid {{ grid-template-columns: repeat(2, 1fr); }}
+                               .wrap {{ padding: 12px 10px 40px; }} }}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>版本画廊<span class="badge">静态版 · 无需 JavaScript</span></h1>
+  <p class="lead">{payload['protocol']['prompt_count']} 条留出提示词 × {len(seeds)} 个 seed ×
+     {len(versions)} 个版本 = {payload['protocol']['prompt_count'] * len(seeds) * len(versions)} 张 · 512px ·
+     {payload['protocol']['steps']} 步 · CFG {payload['protocol']['cfg']} ·
+     交互式盲测版：<a href="versions.html">/versions</a></p>
+
+  <section class="card">
+    <h2 style="margin-top:0">这批图为什么能直接比</h2>
+    <p>每条提示词都<b>没有参与过任何训练</b>；同一个 (prompt, seed) 用同一份初始噪声（<code>manual_seed</code>），
+       四个版本共用同一基座、同一步数、同一 CFG 与分辨率 —— 所以<b>同一题的四张图初始噪声逐位相同</b>，
+       差异只来自权重本身（UNet LoRA；V4 与 V5b 还额外微调过文本编码器）。</p>
+    <p>这个前提是量过的（{align['method']}，{align['n_trials']} 组）：
+       <b>跨版本 r = {align['cross_version_r']:.2f}</b>（最低 10% 也有 {align['cross_version_p10']:.2f}），
+       而不同 seed 时 r = {align['different_seed_r']:.2f}、不同 prompt 的基线 r = {align['different_prompt_r']:.2f}
+       —— 构图确实对齐。</p>
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0">先看结论（诚实版）</h2>
+    <ol>{conclusion}</ol>
+    <p>{esc(payload['conclusion']['ask']).replace('**', '')}</p>
+  </section>
+
+  <section class="card warn">
+    <b>盲测裁判判据无效</b>（机器 {judge['model']}）：{esc(judge['invalid_reason']).replace('**', '')}
+    保留原始数字只为留痕：{"、".join(f"{p['pair']} = {p['wins_left']}/{p['wins_right']}（CI {p['ci'][0]}–{p['ci'][1]}）" for p in judge['pairs'])}。
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0">机器判据</h2>
+    <table><thead><tr><th>版本</th>{metric_head}</tr></thead><tbody>{metric_rows}</tbody></table>
+    <p class="foot">val 与训练目标同源（去噪 MSE），<b>不是画质指标</b>；V6q 的 conditioning 不同，val 不可比。
+       KID 的 σ ≈ 3.5e-05，差异小于 σ 即在噪声内。</p>
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0">超分对比（唯一被证据支持的提升）</h2>
+    <table><thead><tr><th>方法</th><th>细节量相对 bicubic</th><th>PSNR 变化</th></tr></thead>
+      <tbody><tr><td>bicubic（插值下限）</td><td>1.00×</td><td>基准</td></tr>{sr_rows_html}</tbody></table>
+    <div class="srgrid">{sr_cells}</div>
+  </section>
+
+  {"".join(section(index) for index in range(len(prompts)))}
+
+  <p class="foot">数据出处：<code>research/fid_v6/</code>、<code>research/fid_v6/fid_metrics.csv</code>、
+     <code>research/eval_val.csv</code>、<code>research/judge_final/</code>、<code>research/sr_probe_final/</code>；
+     由 <code>tools/make_version_gallery.py</code> 生成（本页无脚本、自包含，可直接双击打开）。</p>
+</div>
+</body>
+</html>
+"""
+
+
 def build(args: argparse.Namespace) -> dict:
     from PIL import Image                      # 只在真正构建时导入
 
@@ -403,13 +584,17 @@ def build(args: argparse.Namespace) -> dict:
         # 行尾必须是 LF（本项目曾有 CRLF 触发门禁的事故）
         data.write_text(json.dumps(payload, ensure_ascii=False, indent=1) + "\n",
                         encoding="utf-8", newline="\n")
+        gallery = Path(args.gallery)
+        gallery.write_text(render_static_gallery(payload, versions, sr_rows or 8),
+                           encoding="utf-8", newline="\n")
         total = sum(f.stat().st_size for f in Path(args.out).rglob("*.webp"))
         print(f"候选 {len(versions)} 个 × {cells} 格 = {len(versions) * cells} 张；"
               f"超分格 {len(SR_COLUMNS)}×{sr_rows}")
         print(f"图片总量 {total / 1024 / 1024:.2f} MB → {args.out}")
         print(f"数据 {data} ({data.stat().st_size / 1024:.0f} KB)")
+        print(f"静态画廊 {gallery} ({gallery.stat().st_size / 1024:.0f} KB，零 JS 可离线打开)")
     else:
-        print(f"[check] 语料完整：{len(versions)} 个候选 × {cells} 格；JSON 结构可生成")
+        print(f"[check] 语料完整：{len(versions)} 个候选 × {cells} 格；JSON 与静态画廊可生成")
     return payload
 
 
@@ -417,6 +602,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="打包版本评判画廊（research/ → site/）")
     ap.add_argument("--out", default=str(ROOT / "site" / "img" / "versions"))
     ap.add_argument("--data", default=str(ROOT / "site" / "data" / "versions.json"))
+    ap.add_argument("--gallery", default=str(ROOT / "site" / "gallery.html"))
     ap.add_argument("--quality", type=int, default=78)
     ap.add_argument("--check", action="store_true", help="只校验语料，不写任何文件")
     build(ap.parse_args())

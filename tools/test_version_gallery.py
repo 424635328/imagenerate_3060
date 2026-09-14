@@ -225,6 +225,35 @@ def main() -> int:
     check("命令面板里有入口命令",
           "versions.html" in (SITE / "js" / "main.js").read_text(encoding="utf-8"))
 
+    print("\n静态画廊（零 JS 保底路径：打不开交互版时必须还能看）")
+    gallery = SITE / "gallery.html"
+    check("site/gallery.html 存在", gallery.exists())
+    if gallery.exists():
+        html = gallery.read_text(encoding="utf-8")
+        check("零脚本、零外部样式表（自包含）",
+              "<script" not in html and "<link" not in html)
+        check("图片全部用相对路径（file:// 双击也能看）",
+              'src="img/versions' in html and 'src="/img/' not in html)
+        check("四版本 × 24 题 × 2 seed = 192 张全在图里",
+              html.count("<img") == 192 + 48, f"{html.count('<img')} 个 img")
+        check("每张图都有版本与题号 alt",
+              all(f'alt="{vid} 第 ' in html for vid in VERSIONS))
+        check("带上了判据无效标记", "判据无效" in html)
+        check("带上了对齐实测 r 值", f"{data['protocol']['alignment']['cross_version_r']:.2f}" in html)
+        check("说明了 val 不是画质指标", "不是画质指标" in html)
+        check("超分六列齐全", all(label in html for label in ("HR", "bicubic", "RealESRGAN",
+                                                              "UltraSharp", "Ours-EMA", "Ours-final")))
+        check("页面里给了交互版的入口", 'href="versions.html"' in html)
+        check("体积合理（< 300 KB HTML）", gallery.stat().st_size < 300 * 1024,
+              f"{gallery.stat().st_size / 1024:.0f} KB")
+    check("交互版顶栏有静态画廊入口（相对链接，本地与线上都能开）",
+          'href="gallery.html"' in PAGE.read_text(encoding="utf-8"))
+    check("载入失败时给的是可诊断面板（不是转圈）",
+          "renderLoadFailure" in PAGE_JS.read_text(encoding="utf-8"))
+    check("sw.js 缓存版本已升到 v7（离线回退按路径修好了）",
+          "lsart-shell-v7" in (SITE / "sw.js").read_text(encoding="utf-8"))
+    check("sw.js 导航回退先找本条路径", "${path}.html" in (SITE / "sw.js").read_text(encoding="utf-8"))
+
     print(f"\n结果：{PASSED} 项通过，{len(FAILED)} 项失败")
     for name in FAILED:
         print(f"  - {name}")

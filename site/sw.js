@@ -9,11 +9,12 @@
  *   static asset    → stale-while-revalidate (instant second load, fresh later)
  *   anything else   → passthrough
  */
-const CACHE_VERSION = 'lsart-shell-v6';
+const CACHE_VERSION = 'lsart-shell-v7';
 const SHELL = [
   '/',
   '/index.html',
   '/versions.html',
+  '/gallery.html',
   '/styles.css',
   '/extra.css',
   '/css/tokens.css',
@@ -93,8 +94,15 @@ self.addEventListener('fetch', (event) => {
       try {
         return await putCache(request, await fetch(request));
       } catch (error) {
-        const cached = await caches.match('/index.html');
-        return cached || Response.error();
+        // 离线回退必须**先找回这一条路径自己**：以前对所有导航都回退
+        // /index.html，于是 /versions 一旦碰上网络抖动（或本机代理坏掉）就会
+        // 变成"打开工作台"——用户看到的是「后端离线」，而不是他点的那一页。
+        const path = new URL(request.url).pathname;
+        for (const key of [request, `${path}.html`, '/index.html']) {
+          const hit = await caches.match(key);
+          if (hit) return hit;
+        }
+        return Response.error();
       }
     })());
     return;
