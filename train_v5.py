@@ -23,6 +23,8 @@ import json
 import math
 import os
 import random
+import re
+import sys
 import time
 from pathlib import Path
 
@@ -32,6 +34,12 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
 ROOT = os.environ.get("LANDSCAPE_ROOT", os.path.dirname(os.path.abspath(__file__)))
+
+# Deterministic validation protocol (see eval_loss): same subset, same noise,
+# same timesteps on every eval so the curve reflects the model, not the dice.
+EVAL_SUBSET_SEED = 1234
+EVAL_NOISE_SEED = 4321
+EVAL_TIMESTEPS = [50, 250, 450, 650, 850]
 
 DEFAULTS = dict(
     pretrained_model_name_or_path="SG161222/Realistic_Vision_V6.0_B1_noVAE",
@@ -70,6 +78,10 @@ def load_kv(path: str) -> dict:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
+                # Inline comments are common in these .cfg files ("lr=0.5  # note").
+                # Only cut at a '#' that follows whitespace, so values like
+                # "https://host/path#frag" survive intact.
+                value = re.split(r"\s+#", value, maxsplit=1)[0]
                 cfg[key.strip()] = value.strip().strip('"').strip("'")
     return cfg
 
@@ -152,9 +164,99 @@ def collate(batch):
     return torch.stack([x[0] for x in batch]), [x[1] for x in batch]
 
 
+def plan(cfg: dict) -> int:
+    """`--plan`：零显存、零 GPU 地回答"要跑多久 / 从哪续 / 缓存对不对"。
+
+    规范要求训练脚本必须能在不加载模型的前提下自证工作量（AGENTS.md §0）。这里只做
+    三件事：读缓存元数据、列检查点、算步数与等效批次；**不 import diffusers、不碰 CUDA**。
+    """
+    print("=== PLAN（不加载模型、不使用 GPU）===")
+    print(f"  架构            : {cfg['arch']}")
+    print(f"  基座            : {cfg['pretrained_model_name_or_path']}")
+    print(f"  输出目录        : {cfg['out_dir']}")
+    print(f"  优化器/精度     : {cfg['optimizer']} / {cfg['mixed_precision']}"
+          f"{' + int8 基座' if cfg['base_8bit'] else ''}")
+    print(f"  LoRA            : r={cfg['lora_rank']} alpha={cfg['lora_alpha']}"
+          f"{' + DoRA' if cfg['use_dora'] else ''}")
+    print(f"  文本编码器      : {'微调 (text_lr=' + str(cfg['text_lr']) + ')' if cfg['finetune_text'] else '冻结'}")
+
+    cache_path = Path(cfg["cache"])
+    if cache_path.exists():
+        try:
+            cache = torch.load(cache_path, map_location="cpu", mmap=True)
+        except (TypeError, RuntimeError):
+            cache = torch.load(cache_path, map_location="cpu")
+        train_count = len(cache.get("latents", []))
+        test_count = len(cache.get("test_latents", []))
+        resolution = cache.get("res", cfg["resolution"])
+        print(f"  缓存            : {cache_path.name}  res={resolution}  "
+              f"train={train_count}  test={test_count}  crops={cache.get('crops')}  "
+              f"arch={cache.get('arch', 'sd15')}")
+        if int(resolution) != int(cfg["resolution"]):
+            print(f"    [注意] 缓存分辨率 {resolution} 与 config 的 resolution={cfg['resolution']} 不一致"
+                  f"（实际按缓存的 latent 尺寸训练）")
+        if cfg["finetune_text"] and not cache.get("caps"):
+            print("    [错误] finetune_text=true 需要缓存的 captions，但缓存里没有 caps")
+        steps = int(cfg["max_train_steps"])
+        accum = max(1, int(cfg["gradient_accumulation_steps"]))
+        batch = max(1, int(cfg["train_batch_size"]))
+        rewinds = 0 if train_count == 0 else -(-steps * accum * batch // train_count)
+        print(f"  步数            : {steps} 步 × 累积 {accum} × batch {batch} "
+              f"= 等效 batch {accum * batch}")
+        print(f"  数据量          : {train_count} 个 latent ⇒ 约 {rewinds} 个 epoch")
+        if test_count:
+            print(f"  验证            : 每 {cfg['eval_every']} 步，子集 {cfg['eval_subset']}/{test_count}"
+                  f"，固定时间步 {EVAL_TIMESTEPS}")
+    else:
+        print(f"  缓存            : [缺失] {cache_path} —— 先跑 precompute_v5.py")
+
+    ck_dir = Path(cfg["out_dir"]) / "checkpoints"
+    candidates = sorted(ck_dir.glob("step_*.pt"), key=lambda p: int(p.stem.split("_")[-1])) \
+        if ck_dir.is_dir() else []
+    if candidates:
+        newest = candidates[-1]
+        size_mb = newest.stat().st_size / 1024 ** 2
+        print(f"  检查点          : {len(candidates)} 个，最新 {newest.name}（{size_mb:.0f} MB）"
+              f"，保留 {cfg['keep_checkpoints']} 个")
+        if cfg["resume"]:
+            print(f"  → 续训将从    : {newest.name}"
+                  f"{'（--resume latest）' if cfg['resume'] == 'latest' else ''}")
+        else:
+            print("  → 本次为全新训练（未开 --resume）")
+    else:
+        print(f"  检查点          : 无（{ck_dir}）⇒ 从 0 开始")
+
+    metrics_path = Path(cfg["out_dir"]) / "metrics.csv"
+    if metrics_path.exists():
+        rows = metrics_path.read_text(encoding="utf-8", errors="ignore").strip().splitlines()
+        if len(rows) > 1:
+            header, last = rows[0].split(","), rows[-1].split(",")
+            observed = dict(zip(header, last))
+            print(f"  上次实测        : step={observed.get('step')} "
+                  f"elapsed={observed.get('elapsed')}s "
+                  f"peak={observed.get('vram_gb', observed.get('vram_gb'))}GB "
+                  f"free={observed.get('free_gb', 'n/a')}GB")
+            try:
+                step = int(float(observed.get("step", 0)))
+                elapsed = float(observed.get("elapsed", 0))
+                if step > 0 and elapsed > 0:
+                    remaining = max(0, int(cfg["max_train_steps"]) - step)
+                    print(f"  预估剩余        : {remaining} 步 × {elapsed / step:.2f} s/step "
+                          f"≈ {remaining * elapsed / step / 60:.1f} 分钟（按上次实测速率）")
+            except (TypeError, ValueError):
+                pass
+
+    print(f"  落盘            : 每 {cfg['save_every']} 步（原子写 .tmp → os.replace）")
+    print(f"  显存门槛        : 启动前要求 ≥ {cfg['min_free_gb']} GB 空闲")
+    print("=== PLAN END（去掉 --plan 即开始训练）===")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="")
+    ap.add_argument("--plan", action="store_true",
+                    help="只打印工作量/缓存/检查点/预估耗时，不加载模型、不使用 GPU")
     for key, value in DEFAULTS.items():
         ap.add_argument("--" + key, type=type(value) if isinstance(value, (int, float, str)) else str, default=None)
     args = ap.parse_args()
@@ -167,9 +269,12 @@ def main() -> int:
             cfg[key] = value
     cfg = coerce(cfg)
 
+    if args.plan:
+        return plan(cfg)
+
     out_dir = Path(cfg["out_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "params.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=1), encoding="utf-8")
+    (out_dir / "params.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
     print("=== V5 CONFIG ===")
     for key, value in cfg.items():
         print(f"  {key}: {value}")
@@ -194,18 +299,27 @@ def main() -> int:
     from peft import LoraConfig, get_peft_model, set_peft_model_state_dict
 
     base = cfg["pretrained_model_name_or_path"]
-    scheduler = DDPMScheduler.from_pretrained(base, subfolder="scheduler")
+    # 基座一律解析到本地目录（HF Hub id 会触发联网取文件，在代理环境下以 SSL 错误失败，
+    # 而且失败信息完全看不出是网络问题 —— 2026-09-13 SDXL 主线就是这样被误判中止的）。
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
+    from sdxl_base import describe as describe_base, offline_kwargs, resolve_base
+    base = resolve_base(base)
+    if base != cfg["pretrained_model_name_or_path"]:
+        print(f"base resolved: {cfg['pretrained_model_name_or_path']} -> {describe_base(base)}")
+    scheduler = DDPMScheduler.from_pretrained(base, subfolder="scheduler", **offline_kwargs(base))
     if cfg["base_8bit"]:
         # SDXL's fp16 UNet alone is 4.9 GB; an int8 base leaves room for LoRA
         # training on a 6 GB card.  Quantized weights are frozen — only the fp16
         # adapters train (QLoRA).
-        raw = UNet2DConditionModel.from_pretrained(base, subfolder="unet", torch_dtype=torch.float16)
+        raw = UNet2DConditionModel.from_pretrained(base, subfolder="unet",
+                                                   torch_dtype=torch.float16, **offline_kwargs(base))
         replaced = quantize_unet_8bit(raw)
         print(f"base UNet quantized to int8: {replaced} Linear layers replaced")
         unet = raw.to(device)
         quantized = True
     else:
-        unet = UNet2DConditionModel.from_pretrained(base, subfolder="unet", torch_dtype=torch.float16)
+        unet = UNet2DConditionModel.from_pretrained(base, subfolder="unet",
+                                                   torch_dtype=torch.float16, **offline_kwargs(base))
         quantized = False
     unet.requires_grad_(False)
     if cfg["gradient_checkpointing"]:
@@ -229,11 +343,15 @@ def main() -> int:
             raise SystemExit("SDXL 文本编码器微调超出 6GB 预算，请保持 finetune_text=false")
         from transformers import CLIPTextModel, CLIPTokenizer
         tokenizer = CLIPTokenizer.from_pretrained(base, subfolder="tokenizer")
+        # 可训练参数必须是 **fp32 主权重**：GradScaler 拒绝反缩放 fp16 梯度
+        # （实测报 "Attempting to unscale FP16 gradients."）。历史上 V4 的 TE 阶段
+        # 从未真正跑过——它把文本编码放在 no_grad 里，因此这个不兼容一直没暴露。
         text_encoder = CLIPTextModel.from_pretrained(base, subfolder="text_encoder",
-                                                     torch_dtype=torch.float16).to(device)
+                                                     torch_dtype=torch.float32).to(device)
         text_encoder.requires_grad_(True)
         text_encoder.train()
-        print("text encoder: trainable (online encoding)")
+        print(f"text encoder: trainable in fp32 (online encoding, "
+              f"{(sum(p.numel() for p in text_encoder.parameters()) / 1e6):.0f}M params)")
 
     if cfg["init_lora"]:
         from safetensors.torch import load_file
@@ -250,7 +368,12 @@ def main() -> int:
         except Exception as error:      # e.g. plain-LoRA weights into a DoRA model
             print(f"[warn] init_lora ignored ({type(error).__name__}: {str(error)[:120]})")
 
-    cache = torch.load(cfg["cache"], map_location="cpu")
+    # mmap=True 让缓存按需分页而不是整份读进物理内存：SDXL 缓存约 1.1GB、
+    # SD1.5 640 缓存约 419MB，训练本身并不需要它们常驻 RAM。
+    try:
+        cache = torch.load(cfg["cache"], map_location="cpu", mmap=True)
+    except (TypeError, RuntimeError):
+        cache = torch.load(cfg["cache"], map_location="cpu")
     cache_arch = cache.get("arch", "sd15")
     if cache_arch != arch:
         raise SystemExit(f"cache arch={cache_arch} but model arch={arch}; rebuild the cache")
@@ -276,14 +399,41 @@ def main() -> int:
         time_ids = torch.tensor([[res, res, 0, 0, res, res]], dtype=torch.float16, device=device)
 
     ds = CachedDS(latents, caps_per)
-    loader = DataLoader(ds, batch_size=cfg["train_batch_size"], shuffle=True, num_workers=0,
-                        collate_fn=collate, drop_last=True)
+
+    def deterministic_batch(step: int, micro_index: int):
+        """第 step 步的第 micro_index 个 micro-batch —— 只由 (seed, step, micro) 决定。
+
+        为什么不用 `DataLoader(shuffle=True)`：它的排列是**每个 epoch 抽一次**，续训后从 epoch
+        头部重新开始，数据顺序与"不中断地跑"不同。2026-09-13 的续训一致性测试因此失败
+        （kill→resume 与一口气跑完的权重差 1.5e-3，而换 seed 只差 1.1e-1 → 差异确实来自顺序）。
+        改成 (step, micro) 的纯函数后，第 k 步看到的数据与是否重启无关，续训才真的可复现
+        （AGENTS.md 训练脚本规范 §2「不要用跳过前 N 个 batch 续训」的落地）。
+        """
+        generator = torch.Generator().manual_seed(cfg["seed"] * 1000003 + step * 131 + micro_index)
+        indices = torch.randperm(len(ds), generator=generator)[: cfg["train_batch_size"]].tolist()
+        return collate([ds[index] for index in indices])
+
+    def batch_stream():
+        """无限批次流：第 i 个 micro-batch 属于 step = start_step + i // accum，micro = i % accum。"""
+        start_step = global_step
+        index = 0
+        while True:
+            yield deterministic_batch(start_step + index // cfg["gradient_accumulation_steps"],
+                                      index % cfg["gradient_accumulation_steps"])
+            index += 1
 
     groups = [{"params": [p for p in unet.parameters() if p.requires_grad], "lr": cfg["learning_rate"]}]
     if text_encoder is not None:
         groups.append({"params": [p for p in text_encoder.parameters() if p.requires_grad],
                        "lr": cfg["text_lr"]})
     opt_name = cfg["optimizer"].lower()
+    if opt_name == "prodigy" and len(groups) > 1 and cfg["text_lr"] != cfg["learning_rate"]:
+        # Prodigy 用单一全局 d 估计，不支持参数组间不同 lr（底层会抛
+        # "Setting different lr values in different parameter groups is only supported
+        #  for values of 0"）。TE 与 UNet 需要不同步长时请改用 adamw/adamw8bit。
+        raise SystemExit(
+            "optimizer=prodigy 不支持 text_lr != learning_rate 的分组学习率；"
+            "请把 optimizer 改为 adamw（或 adamw8bit）后再微调文本编码器")
     if opt_name == "prodigy":
         from prodigyopt import Prodigy
         optimizer = Prodigy(groups, decouple=True, use_bias_correction=True, safeguard_warmup=True,
@@ -366,18 +516,25 @@ def main() -> int:
 
     @torch.no_grad()
     def eval_loss(subset: int):
-        """Plain unweighted MSE — deliberately the same protocol as train_v4 so the
-        val numbers stay comparable across versions."""
+        """Plain unweighted MSE on a *deterministic* protocol.
+
+        The V4 trainer sampled a random subset and a random timestep每 eval, which
+        made the curve jitter by ±0.02 — enough to hide a real improvement.  Here
+        the subset, the noise and the timestep per sample are all fixed, so the
+        curve only moves when the model does.  Cross-model ranking still belongs
+        to tools/eval_val_mse.py (it also controls for the text encoder).
+        """
         if not test_lat:
             return None
         unet.eval()
         count = min(subset, len(test_lat))
-        idx = torch.randint(0, len(test_lat), (count,))
+        order = torch.randperm(len(test_lat), generator=torch.Generator().manual_seed(EVAL_SUBSET_SEED))[:count].tolist()
         total_loss = 0.0
-        for i in idx.tolist():
+        for position, i in enumerate(order):
             lat = test_lat[i].unsqueeze(0).to(device)
-            noise = torch.randn_like(lat)
-            ts = torch.randint(0, scheduler.config.num_train_timesteps, (1,), device=device)
+            noise = torch.randn(lat.shape, generator=torch.Generator().manual_seed(EVAL_NOISE_SEED + i)).to(device, dtype=lat.dtype)
+            timestep = EVAL_TIMESTEPS[position % len(EVAL_TIMESTEPS)]
+            ts = torch.tensor([timestep], device=device)
             noisy = scheduler.add_noise(lat, noise, ts)
             with torch.autocast("cuda", dtype=torch.float16, enabled=fp16):
                 if arch == "sdxl":
@@ -392,11 +549,36 @@ def main() -> int:
     ck_dir = out_dir / "checkpoints"
     ck_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = out_dir / "metrics.csv"
+    METRIC_HEADER = ["step", "train_loss", "val_loss", "lr", "elapsed",
+                     "vram_gb", "reserved_gb", "free_gb"]
+    # 列升级后旧文件会造成"参差不齐的行"，无法被解析；保留旧文件改名，另起一份
+    if metrics_path.exists():
+        with open(metrics_path, newline="", encoding="utf-8") as handle:
+            current = next(csv.reader(handle), [])
+        if current != METRIC_HEADER:
+            metrics_path.replace(out_dir / "metrics_prev.csv")
     if not metrics_path.exists():
         with open(metrics_path, "w", newline="", encoding="utf-8") as handle:
-            csv.writer(handle).writerow(["step", "train_loss", "val_loss", "lr", "elapsed", "vram_gb"])
+            csv.writer(handle).writerow(METRIC_HEADER)
+
+    def vram_snapshot() -> dict:
+        """显存四元组：只看 allocated 会漏掉碎片，只看 reserved 会漏掉"别人占着"。
+
+        6GB 卡上"还能不能跑"由 free 决定（含其它进程占用），而"我们有没有泄漏"
+        由 allocated/reserved 的差距决定。卡死（WDDM 超配）时这两个数看起来都正常，
+        所以还必须配合心跳看门狗（见 tools/train_driver.py --stall-seconds）。
+        """
+        free_bytes, total_bytes = torch.cuda.mem_get_info()
+        return {
+            "allocated_gb": torch.cuda.memory_allocated() / 1024 ** 3,
+            "reserved_gb": torch.cuda.memory_reserved() / 1024 ** 3,
+            "peak_gb": torch.cuda.max_memory_allocated() / 1024 ** 3,
+            "free_gb": free_bytes / 1024 ** 3,
+            "total_gb": total_bytes / 1024 ** 3,
+        }
 
     def write_metric(step, train_loss, val_loss, elapsed):
+        snapshot = vram_snapshot()
         with open(metrics_path, "a", newline="", encoding="utf-8") as handle:
             csv.writer(handle).writerow([
                 step,
@@ -404,17 +586,62 @@ def main() -> int:
                 round(val_loss, 5) if val_loss is not None else "",
                 f"{optimizer.param_groups[0]['lr']:.3e}",
                 round(elapsed, 1),
-                round(torch.cuda.max_memory_allocated() / 1024 ** 3, 2),
+                round(snapshot["peak_gb"], 2),
+                round(snapshot["reserved_gb"], 2),
+                round(snapshot["free_gb"], 2),
             ])
 
     global_step = 0
+    def rng_state() -> dict:
+        """续训可复现的关键：不存 RNG，恢复后看到的数据顺序与噪声都变了。
+
+        numpy 的 state 带 ndarray，而 torch 2.6 起 `torch.load` 默认 weights_only=True
+        不接受 ndarray —— 所以这里把 numpy state 拆成纯 python 基本类型再存。
+        """
+        state = {"python": random.getstate(), "torch": torch.get_rng_state()}
+        if torch.cuda.is_available():
+            state["cuda"] = torch.cuda.get_rng_state_all()
+        try:
+            name, keys, pos, has_gauss, cached = np.random.get_state()
+            state["numpy"] = {"name": name, "keys": [int(k) for k in keys],
+                              "pos": int(pos), "has_gauss": int(has_gauss),
+                              "cached_gaussian": float(cached)}
+        except (ValueError, TypeError):
+            pass                                  # 非 MT19937 后端就不存，不阻塞训练
+        return state
+
+    def restore_rng(state: dict) -> None:
+        if not state:
+            return
+        if "python" in state:
+            random.setstate(state["python"])
+        if "torch" in state:
+            torch.set_rng_state(state["torch"])
+        if "cuda" in state and torch.cuda.is_available():
+            torch.cuda.set_rng_state_all(state["cuda"])
+        numpy_state = state.get("numpy")
+        if numpy_state:
+            np.random.set_state((numpy_state["name"],
+                                 np.array(numpy_state["keys"], dtype=np.uint32),
+                                 numpy_state["pos"], numpy_state["has_gauss"],
+                                 numpy_state["cached_gaussian"]))
+
+    def load_checkpoint(path: Path) -> dict:
+        """优先 weights_only=True（更安全）；含非张量对象（cfg/RNG 元组）时回退。"""
+        try:
+            return torch.load(path, map_location="cpu", weights_only=True)
+        except Exception:
+            return torch.load(path, map_location="cpu", weights_only=False)
+
+    scaler = torch.amp.GradScaler("cuda", enabled=fp16)
+
     if cfg["resume"]:
         resume_path = cfg["resume"]
         if resume_path == "latest":
             candidates = sorted(ck_dir.glob("step_*.pt"), key=lambda p: int(p.stem.split("_")[-1]))
             resume_path = str(candidates[-1]) if candidates else ""
         if resume_path and Path(resume_path).exists():
-            ck = torch.load(resume_path, map_location="cpu")
+            ck = load_checkpoint(Path(resume_path))
             global_step = ck.get("global_step", 0)
             if "unet_lora" in ck:
                 set_peft_model_state_dict(unet, ck["unet_lora"])
@@ -428,7 +655,12 @@ def main() -> int:
                 for key, value in ck["ema"].items():
                     if key in ema:
                         ema[key].copy_(value.to(ema[key].device))
-            print(f"resumed at step {global_step}")
+            if ck.get("scaler"):
+                scaler.load_state_dict(ck["scaler"])
+            restore_rng(ck.get("rng") or {})
+            print(f"resumed at step {global_step}（RNG 状态已恢复: {'rng' in ck}）", flush=True)
+        else:
+            print(f"[resume] 没有可用检查点（{resume_path or '目录为空'}）——从 0 开始", flush=True)
 
     def save_checkpoint():
         # Only trainable adapters + optimizer + EMA are stored.  A full
@@ -439,14 +671,19 @@ def main() -> int:
                          if "lora_" in name or "magnitude" in name}
         payload = {"global_step": global_step, "unet_lora": adapter_state,
                    "optimizer": optimizer.state_dict(), "scheduler": schedule.state_dict(),
-                   "ema": ema, "cfg": cfg, "arch": arch}
+                   "ema": ema, "cfg": cfg, "arch": arch,
+                   "rng": rng_state(),                       # 续训可复现
+                   "scaler": scaler.state_dict() if scaler.is_enabled() else None,
+                   "protocol": {"eval_timesteps": EVAL_TIMESTEPS,
+                                "eval_subset_seed": EVAL_SUBSET_SEED,
+                                "eval_noise_seed": EVAL_NOISE_SEED}}
         if text_encoder is not None:
             payload["text_state"] = text_encoder.state_dict()
         tmp = ck_dir / f"step_{global_step}.pt.tmp"
         torch.save(payload, tmp)
-        os.replace(tmp, ck_dir / f"step_{global_step}.pt")
+        os.replace(tmp, ck_dir / f"step_{global_step}.pt")     # 同目录原子替换
         candidates = sorted(ck_dir.glob("step_*.pt"), key=lambda p: int(p.stem.split("_")[-1]))
-        for old in candidates[: -cfg["keep_checkpoints"]]:
+        for old in candidates[: -cfg["keep_checkpoints"]]:     # 只删旧的，永不删最新
             old.unlink(missing_ok=True)
 
     def export(dirname: str):
@@ -456,7 +693,6 @@ def main() -> int:
                 torch.save(text_encoder.state_dict(), out_dir / f"{dirname}_text_encoder.pt")
         with_ema(_save)
 
-    scaler = torch.amp.GradScaler("cuda", enabled=fp16)
     best = float("inf")
     started = time.time()
     last_log = started
@@ -466,7 +702,7 @@ def main() -> int:
     stall_reported = False
     print(f"training {total} steps ...")
     while global_step < total:
-        for lat, cap_batch in loader:
+        for lat, cap_batch in batch_stream():
             if global_step >= total:
                 break
             # Shared-card watchdog: a laptop GPU is often busy with other apps.

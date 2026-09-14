@@ -5,9 +5,13 @@
 
 支持**本地 Gradio 应用**与**线上 Web（Netlify 前端 + 你本机 GPU 后端）**两种用法。
 
-> **当前最新：V4 / V4-640**（部署基线）+ **V5 训练中**（min-SNR-γ / Prodigy / DoRA，见 `docs/TRAINING.md`）。
-> 推荐权重：`models/v4_640/adapter_best`（640 原生）+ `models/v4_640/adapter_best_text_encoder.pt`（微调 CLIP）。
-> 二者均由 **EMA 最优**导出。
+> **当前最新（2026-09-14）**
+> - **部署权重**：`models/v4_640/adapter_best`（640 原生，V4 基线）。
+> - **训练结论**：V5 / V5b / **V6q（caption 对照实验）** 与 6 个免训练融合产物在**四条独立判据**下
+>   与 V4 **打平**（val 仅有 0.3% 效应量；KID、盲测裁判、视觉判读均无法区分）——
+>   **完整判决见 [`docs/FINAL_VERDICT.md`](docs/FINAL_VERDICT.md)**，不要只看 val 下结论。
+> - **已上线的质量提升**：自训 **超分 GAN** 成为三入口默认超分模型（细节量 **6.53×/8.69×** bicubic）。
+> - **不可行项（实测）**：SDXL 在本机**既训不动也推不动**（训练 2500 步需 125–180 小时；推理峰值 5.5–5.9 GB 撞 6 GB 墙并 WDDM 卡死），见 `docs/TRAINING.md` §10.3/§10.4。
 
 > 🚀 **新协作者请先看 [`docs/REPRODUCE.md`](docs/REPRODUCE.md)**：从 clone 到跑通训练/服务/部署的完整步骤，
 > 以及「哪些内容不入库、如何一条命令重建」（权重、数据集、缓存）。一分钟自检：
@@ -21,7 +25,7 @@
 2. [快速开始](#2-快速开始)
 3. [系统架构](#3-系统架构)
 4. [模型演进 V1 → V4](#4-模型演进-v1--v4)
-5. [V4 详解（当前最新）](#5-v4-详解当前最新)
+5. [V4 详解（部署基线）](#5-v4-详解部署基线训练脚本已归档)
 6. [推理：质量 / 速度 / 清晰度](#6-推理质量--速度--清晰度)
 7. [前端 UX 功能](#7-前端-ux-功能)
 8. [线上部署](#8-线上部署)
@@ -31,6 +35,10 @@
 12. [质量验证与压力测试](#12-质量验证与压力测试)
 13. [常见问题与排错](#13-常见问题与排错)
 14. [已知限制与后续路线](#14-已知限制与后续路线)
+15. [本次工程升级（2026）](#15-本次工程升级2026)
+16. [v5：批内多图 + 结果缓存 + 前端工作台扩展](#16-v5批内多图--结果缓存--前端工作台扩展)
+17. [V6 起点：上传安全 + 任务取消 + 工程门禁](#17-v6-起点上传安全--任务取消--工程门禁已实施)
+18. [训练实验与负结果（2026-09-14）](#18-训练实验与负结果2026-09-14)
 
 ---
 
@@ -47,6 +55,8 @@
 | 高清输出 | 两段式 1024；ultimate upscale **2048 ≈ 63 s**、**4096 ≈ 30 s**（快速路径） |
 | 显存 | 512：2.8 GB / 768：3.7 GB / 1024：峰值 6.7 GB（临界）；服务端用 `cpu_offload` 稳跑 6 GB 共享卡 |
 | 稳定性 | 七维压测全部 PASS（见 §12） |
+| **默认超分模型** | **自训 `ours`**（`models/sr/landscape_gan_x4_best.pth`，细节量 6.53× bicubic）；`SR_MODEL` 可切回 `ultrasharp`/`realesrgan` |
+| **训练实验结论** | V5/V5b/V6q/融合**均与 V4 打平**（四判据，见 `docs/FINAL_VERDICT.md`）；SDXL 不可训亦不可推 |
 
 ---
 
@@ -212,7 +222,13 @@ SD1.5 原生 512，直接生成更大分辨率会结构崩坏，正确做法是�
 512/640 生成 ──► ① 神经超分(1 轮) ──► ② 分块(512) img2img 低强度重绘(余弦羽化融合) ──► ③ 轻锐化 ──► 2K/3K/4K
 ```
 
-- 超分模型可选：**`4x-UltraSharp`**（默认，`models/sr/4x-UltraSharp.pth`）或 `Real-ESRGAN`（`sr_model` 参数）。
+- 超分模型可选：**`自训·风景`（`ours`，推荐）**、`自训·末轮`（`ours_final`，细节更强）、`4x-UltraSharp`、`Real-ESRGAN`（`sr_model` 参数）。
+  - `ours` / `ours_final` 是**本项目自训**的 x4 权重（`models/sr/landscape_gan_x4{_best}.pth`，
+    Real-ESRGAN 高阶退化微调 4000 迭代）。客观评测（`research/sr_probe_final/`、`docs/TRAINING.md` §8）：
+    相对 bicubic 细节量 **6.53×（EMA）/ 8.69×（末轮）**、PSNR −1.45/−1.56 dB；对照 RealESRGAN 7.09×、
+    UltraSharp 8.03× —— 自训权重与两个商用权重同档，且是在**本地风景分布**上微调的。
+  - `sr_model` 只接受已注册的名字或 `models/sr/` 内的文件名（`enhance.resolve_sr_path`），
+    路径越界一律 422 —— 这个字段来自 HTTP 请求体且会被用来打开文件，必须夹住。
 - **神经超分只跑一轮**，其余用 LANCZOS 补齐（多轮超分极慢，实测是主要瓶颈）。
 - 分块让每块都落在 512 原生域内 → **6 GB 显存可安全产出 2K/3K/4K**。
 - 参数：`enhance`(目标边长) / `sr_model` / `enhance_strength`(重绘强度，0=仅超分) / `enhance_steps`。
@@ -233,7 +249,7 @@ SD1.5 原生 512，直接生成更大分辨率会结构崩坏，正确做法是�
 | **刷新不丢** | 任务（job_id/seed/状态/大小）、界面设置、历史画廊全部存 `localStorage`（键 `lsart_v1`）；刷新后自动重连进行中的任务并继续轮询 |
 | **档位选择** | 质量/速度：⚡极速 6 步 / ⚖️标准 24 步 / ✨精细 40 步 / 自定义；结果信息显示「seed · 步数 · 尺寸」 |
 | **清晰度** | 标准 512 / 高清 1024（两段式）/ 超清 2048 / 极清 3072 / 4K 4096（分块下载） |
-| **超分模型** | 4x-UltraSharp（默认）/ Real-ESRGAN |
+| **超分模型** | 自训·风景 `ours`（推荐）/ 自训·末轮 `ours_final` / 4x-UltraSharp / Real-ESRGAN |
 | **预制场景 28 个** | 分 4 类：自然奇观 8 / 海岸与水 6 / 四季 6 / 光效与天象 8；悬停显示英文 prompt；随机池 20 条 |
 | **历史画廊** | 状态徽标（🕒 排队中 / ⏳ 生成中 / ❌ 失败 / ⌛ 已过期）、点击放大、悬停下载、清空历史 |
 | **过期自愈** | 后端只保留最近 500 个任务，被清理的结果标记「⌛ 已过期」而非坏图 |
@@ -326,6 +342,36 @@ $PY="<PYTHON>"; $R="<你的项目根目录>"
 & $PY $R\tools\compare_adapters.py --adapters "V4:$R\models\v4_640\adapter_best" "V5:$R\models\v5_lora\adapter_best"
 & $PY $R\tools\test_adapter_load.py $R\models\v5_lora\adapter_best              # 部署门禁：能否被推理栈加载
 
+# ── 评测（四条互相独立的判据）──
+& $PY $R\tools\eval_val_mse.py --adapters "BASE:" "V4:$R\models\v4_640\adapter_best" `
+      "V5:$R\models\v5_lora\adapter_best" --cache $R\dataset1024\cache_v4_640.pt --csv $R\research\eval_val.csv
+& $PY $R\tools\eval_val_mse.py --plan --adapters "V4:..." "ties:..."             # 先看代价（不加载模型、不用 GPU）
+& $PY $R\tools\eval_fid.py --adapters "V4:..." "V5:..." --out $R\research\fid --seeds 2
+      #   ↑ 留出 prompt 的 KID / CLIP-FID / CLIP 一致性（与训练目标无关的画质判据）
+& $PY $R\tools\vlm_judge.py --a "V4:..." --b "V6q:..." --out $R\research\judge_final
+      #   ↑ 自研盲测偏好裁判：随机左右交换 + Wilson 95% 区间
+& $PY $R\tools\final_verdict.py                                                  # 汇总成 docs/FINAL_VERDICT.md
+& $PY $R\tools\deploy_check.py --adapter $R\models\v5b_lora\adapter_best --expect-text-encoder
+
+# ── 融合与超分（都可 CPU 完成）──
+& $PY $R\tools\merge_lora.py --adapters $R\models\v4_640\adapter_best $R\models\v5_lora\adapter_best `
+      --methods linear slerp ties dare_ties --weights 0.5 0.5 --out $R\models\merged
+& $PY $R\tools\verify_merge.py --sources $R\models\v4_640\adapter_best $R\models\v5_lora\adapter_best `
+      --merged $R\models\merged --weights 0.5 0.5                                # 数值门禁：证明不是静默 no-op
+& $PY $R\train_sr_gan.py --iters 4000 --hr-size 256 --batch 3                    # 超分 GAN（已作为默认超分上线）
+& $PY $R\tools\probe_sr_model.py --images 8 --out $R\research\sr_probe_final     # bicubic/RealESRGAN/UltraSharp/Ours
+& $PY $R\tools\recaption_driver.py --manifest $R\dataset1024\manifest.json `
+      --out $R\dataset1024\captions_qwen.json --checkpoint-every 25 --max-edge 512   # VLM 重标注（看门狗+增量落盘）
+
+# ── 守望式训练（等显存 + 卡死重启 + 断点续训）──
+& $PY $R\train_v5.py --config $R\config_v5.cfg --plan                           # 零显存预检：缓存/断点/工作量/实测速率
+& $PY $R\tools\train_driver.py --script train_v5.py --config $R\config_v5.cfg `
+      --save_every 500 --min-free 1.8 --stall-seconds 300
+
+# ── 纯 CPU 门禁（改完必跑，共 180 项）──
+& $PY $R\tools\test_eval_plan.py ; & $PY $R\tools\test_merge_math.py ; & $PY $R\tools\test_sdxl_base.py
+& $PY $R\tools\test_pipeline_logic.py ; & $PY $R\tools\test_sr_and_judge.py
+
 # ── 推理与产物（历史脚本见 archive/）──
 & $PY $R\archive\v1_v2\inference.py --base $R\models\base_rv6 --lora $R\models\v4_640\adapter_best --prompt "..." --width 768 --height 768 --steps 24
 & $PY $R\archive\v1_v2\generate_v2_gallery.py --adapter $R\models\v4_640\adapter_best --prompts-file $R\showcase_prompts.txt
@@ -399,6 +445,21 @@ landscape_gen/
 
 ## 12. 质量验证与压力测试
 
+### 12.0 模型质量的四条独立判据（2026-09-14，结论：与 V4 打平）
+
+> 完整数据见 **`docs/FINAL_VERDICT.md`**；方法学与负结果见 §18 与 `docs/TRAINING.md` §11。
+
+| 判据 | 工具 | 结果 |
+|---|---|---|
+| 固定协议 val（144 样本 × 5 时间步） | `tools/eval_val_mse.py` | V5b 0.18583 < V5 0.18589 < … < V4 0.18644；配对 t=15~20「显著」但**效应量仅 0.3%** |
+| 留出 prompt 的 KID / CLIP-FID | `tools/eval_fid.py` | **V4 最低**（KID 0.000359），其余 0.000377–0.000404，**差异小于 KID 标准差 3.5e-05** |
+| 留出 prompt 的 CLIP 一致性 | `tools/eval_fid.py` | 0.2716–0.2726，噪声级差异 |
+| **盲测成对偏好裁判** | `tools/vlm_judge.py` | 三轮**全部「无法区分」**（Wilson 区间均跨 50%） |
+| 视觉逐格判读 | `docs/VISUAL_REVIEW.md` | 同样无法区分；V5 仅饱和度略高 |
+
+**判定原则**：只有画质类判据一致占优才能说「质量更好」；差异小于其不确定度时一律记为「无法区分」。
+按此原则，**V5 / V5b / V6q / 融合均未超过 V4**；唯一被证据支持的质量提升是自训超分（见 §6.3 与 §18.4）。
+
 ### 12.1 七维压测（`stress_test.py`，PASS）
 | 维度 | 结果 |
 |---|---|
@@ -452,19 +513,21 @@ landscape_gen/
 
 ## 14. 已知限制与后续路线
 
-**限制**
+**限制（含 2026-09-14 的实测结论）**
 - 6 GB 显存 + SD1.5 架构是天花板：细节/语义理解无法与 SDXL/FLUX 相比。
+- **SD1.5 的微调已经饱和**：换优化器、权重分解、rank、融合、补训文本编码器、重写 caption
+  六条路线在四条独立判据下**全部与 V4 打平**（见 §18 与 `docs/FINAL_VERDICT.md`）。
+- **SDXL 在本机既不可训也不可推**：训练 2500 步需 125–180 小时；推理峰值 5.5–5.9 GB 撞 6 GB 墙并 WDDM 卡死。
 - 数据集仅 1520 张训练图，长训必过拟合 → 只能靠「源增强 + EMA + 验证选优」缓解。
 - 线上可用性依赖本机在线 + 隧道（免费 ngrok 域名会变）。
 - `server_cloud.py` 需要你自己的 Replicate 令牌，本项目未实测其真实出图。
 
-**后续可做**
-1. **固定域名**：Cloudflare 命名隧道 + 自有域名，免去每次改 `BACKEND_URL`。
-2. **访问口令**：给页面加登录，防止他人消耗本机算力。
-3. **官方风格 LoRA**：为油画/水墨/赛博朋克各训一个小 LoRA（需收集风格参考图）。
-4. **上云 SDXL/FLUX**：真正跨代提升，需按量付费的云端 GPU。
-5. **ControlNet**：构图/边缘控制，需额外模型与更多显存。
-# imagenerate_3060
+**后续可做（按性价比排序）**
+1. **上云跑 SDXL/FLUX**：本机唯一被实测排除、而云端可行的跨代提升路线（`server_cloud.py` 已预留）。
+2. **固定域名**：Cloudflare 命名隧道 + 自有域名，免去每次改 `BACKEND_URL`。
+3. **访问口令**：给页面加登录，防止他人消耗本机算力。
+4. **继续放大超分**：自训超分已上线（细节量 6.5–8.7×），可再训 x2/x3 档与更强退化建模。
+5. **ControlNet**：构图/边缘控制，需额外模型与更多显存（6 GB 上需分块 + offload）。
 
 
 
@@ -560,3 +623,74 @@ landscape_gen/
   模糊+子序列匹配、`↑↓` 选择、`Enter` 执行、结果计数），内含 **25 条真实命令**
   （生成 / 换 seed / 一次 2·4 张 / 随机灵感 / 收藏 / 复制 seed·prompt / 下载 / 全屏 / 对比 /
   跳到画廊·统计·词库·状态 / 预热 / 回收 / 主题 / 清空历史 / 取消排队任务 / 复用参数 / 导入导出）。
+
+---
+
+## 18. 训练实验与负结果（2026-09-14）
+
+> 本节记录一次**完整的训练实验与它的否证结论**。方法与论文依据见 `docs/TRAINING.md` §2，
+> 路线可行性的实测依据见 §3，四判据并列的判决见 **`docs/FINAL_VERDICT.md`**。
+
+### 18.1 试过什么（全部真实训练完成）
+
+| 编号 | 做法 | 唯一变量 | 成本 |
+|---|---|---|---|
+| V5 | 640 / r64 / Prodigy / min-SNR-γ=5 / EMA | 相对 V4：优化器与损失加权 | 4000 步，约 1.5 小时 |
+| V5b | 从 V5 出发补训 **CLIP 文本编码器**（fp32、adamw8bit、512 缓存） | 文本编码器是否微调 | 1200 步，39.5 分钟 |
+| V6q | 用 **Qwen2-VL-2B 重写 1649 条结构化 caption** 后重训，配方与 V5 逐项相同 | **只有 caption** | 重标注 90 分钟 + 训练 109 分钟 |
+| 融合 | V4⊕V5 与 V4⊕V5b 的 linear/slerp/TIES/DARE（**纯 CPU**） | 权重空间平均 | 约 2 分钟/个 |
+| 超分 GAN | RRDBNet x4 在本地风景分布上做 Real-ESRGAN 高阶退化微调 | — | 4000 迭代，37 分钟 |
+
+### 18.2 结论：没有一条微调路线能超过 V4
+
+| 判据 | 结果 |
+|---|---|
+| 固定协议 val（144 样本 × 5 时间步） | V5b 0.18583 < V5 0.18589 < … < **V4 0.18644**，配对 t=15~20「显著」但**效应量仅 0.3%** |
+| 留出 prompt 的 KID ↓（24 条自拟提示词 × 2 种子） | **V4 最低**（0.000359），其余 0.000377~0.000404，**差异小于 KID 自身标准差 3.5e-05** |
+| 留出 prompt 的 CLIP 一致性 ↑ | V5 0.2726 / V5b 0.2720 / V6q 0.2719 / V4 0.2716 —— 同一量级，噪声内 |
+| **盲测成对偏好裁判**（VLM 随机左右交换 + Wilson 95% 区间） | 三轮**全部「无法区分」**：V4 vs V5b 62.5%（CI 48.4–74.8）、V4 vs V6q 47.9%（34.5–61.7）、V5b vs V6q 45.8%（32.6–59.7） |
+| 视觉逐格判读（`docs/VISUAL_REVIEW.md`） | 同样无法区分；V5 只是饱和度略高 |
+
+**caption 实验是最有说服力的一条**：Qwen2-VL 把每张图的**具体内容短语从 6 个提到 9 个**
+（1649/1664 张，接纳率 100%），训练配方一字不改 —— **画质依然没有变好**。
+V6q 甚至是所有候选里**最锐的**（742 vs V4 698），但裁判并不偏好它：
+**「更锐」不等于「更好看」**，这正是不能拿单一指标当质量结论的原因。
+
+### 18.3 为什么不能用 val 判定（方法论）
+
+固定协议 val 与训练目标同源（都是去噪 MSE），训练越久它必然越低 —— 它奖励的是「拟合得更狠」，
+未必是「画得更好」。所以本项目最终用**四条互相独立**的判据交叉验证，并且规定：
+**任何差异小于它自身不确定度（KID 的标准差、裁判胜率的区间）时，一律记为「无法区分」**。
+
+### 18.4 真正交付的质量提升：自训超分
+
+唯一被客观证据支持、且已上线的是**超分 GAN**：
+
+- 细节量（Laplacian）相对 bicubic **6.53×（EMA）/ 8.69×（末轮）**，PSNR −1.45/−1.56 dB；
+  对照 RealESRGAN 7.09×、UltraSharp 8.03× —— 与两个商用权重同档；
+- 视觉判读：纹理可信、伪影少，**文字（"LONDON-PARIS 1900"）没有被臆造**（GAN 超分最典型的失败模式）；
+- **三个入口统一默认使用它**：`enhance.py`（流水线）、`app.py`（Gradio）、`server.py`（API），
+  前端下拉第一个选项即「自训·风景（推荐）」；`SR_MODEL=ultrasharp|realesrgan` 可回退。
+
+### 18.5 不可行项（实测，别再试）
+
+| 项 | 实测 |
+|---|---|
+| SDXL QLoRA 训练 | 单 micro-batch 50–65 s ⇒ 2500 步配方 **125–180 小时** |
+| SDXL 推理 | 24 步 1024 / 24 步 768 / Lightning 4 步三种配置峰值 **5.5–5.9 GB**，撞 6 GB 墙后 **WDDM 卡死**（0 张产出、不报错） |
+| 结论 | SDXL 在本机**既不可训也不可推**；需要云端 GPU（`server_cloud.py` 已预留） |
+
+### 18.6 本次新增的工具（都可复现）
+
+| 工具 | 作用 |
+|---|---|
+| `tools/eval_fid.py` | 留出 prompt 的 **KID / CLIP-FID / CLIP 一致性**（与训练目标无关的画质判据） |
+| `tools/vlm_judge.py` | **自研盲测成对偏好裁判**：随机左右交换 + 强制选择 + Wilson 95% 区间 |
+| `tools/final_verdict.py` | 把 val/配对/出图/KID/裁判汇总成 `docs/FINAL_VERDICT.md` |
+| `tools/recaption_driver.py` | VLM 重标注的**心跳看门狗**（卡死自动续跑，每 25 张增量落盘） |
+| `tools/deploy_check.py` | 部署形态静态检查：线上到底会加载哪份 LoRA 与文本编码器 |
+| `tools/verify_merge.py`、`tools/test_merge_math.py` | 融合产物的**数值门禁**（证明不是静默 no-op） |
+| `tools/test_*.py` | 180 项纯 CPU 单测（评测协议 / 融合算术 / 基座解析 / 流水线决策 / 超分+裁判） |
+
+> 命名说明：README 第 17 节的 **V6** 指**产品阶段**（上传安全 / 任务取消 / 工程门禁）；
+> 本节的 **V6q** 指**caption 对照实验的训练权重**（`config_v6q.cfg` / `models/v6_qwen/`）。两者无关。

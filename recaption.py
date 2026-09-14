@@ -26,29 +26,62 @@ from pathlib import Path
 ROOT = Path(os.environ.get("LANDSCAPE_ROOT") or Path(__file__).resolve().parents[1])
 
 INSTRUCTION = (
-    "你是一位风景摄影图库的编辑，正在为文生图模型准备训练描述。"
-    "用英文、逗号分隔的短语写一句描述（最多 45 个词），依次覆盖："
-    "画面主体与场景、环境与地貌、天气与光线、时间或季节、色调与氛围、"
-    "以及可能的摄影风格（如 long exposure、aerial view）。"
-    "只描述画面中确实存在的内容，绝对不要臆造人物、建筑或事件；不要写完整句子。"
+    "Describe this landscape photo as a training caption. "
+    "Output ONLY comma-separated English noun phrases — exactly 10 to 18 of them, nothing else. "
+    "No sentences, no verbs (is/are/stands/stretches/overlooks), no explanation, no quotes. "
+    "Cover in order: main subject, scene, terrain, weather, lighting, time of day, colour, mood, camera style. "
+    "Never invent people, buildings or events. "
+    "Example: snow-capped mountain range, still alpine lake, dawn mist, golden light, cold blue tones, "
+    "mirror reflection, wide angle landscape photograph"
+)
+# 被拒时的加强版指令（成本只花在失败样本上，而不是整批）
+INSTRUCTION_RETRY = (
+    "Look at the photo. Write 12 comma-separated English noun phrases describing what is visible. "
+    "Do not write sentences. Do not explain. Start directly with the first phrase. "
+    "Example: rocky coastline, turquoise water, white surf, sea stacks, overcast sky, soft light, "
+    "cool tones, long exposure, wide angle landscape photograph"
 )
 STYLE_TAG = "professional landscape photography"
+
+# 目标形状：以逗号短语为主（SD1.5 的文本域就是标签式短语，长散文会挤占 77 token 预算）
+MAX_PHRASES = 20
+MIN_PHRASES = 5
+
+
+def phrases(text: str) -> list[str]:
+    return [part.strip(" .") for part in (text or "").split(",") if part.strip(" .")]
+
+
+def normalize(text: str) -> str:
+    """把模型输出压成"逗号短语"形状：去掉句子残余、超长则在短语边界截断。
+
+    为什么不直接丢弃不合格输出：实测 58% 的样本因为写成散文/超长而被 `acceptable()` 拒掉，
+    GPU 时间白烧。截断到短语边界能保住大部分信息，又不会把长句塞进 CLIP 的 token 预算。
+    """
+    cleaned = clean(text)
+    cleaned = re.sub(r"\b(is|are|was|were|stands|stretches|overlooks|surrounded by|bathed in)\b",
+                     "", cleaned, flags=re.I)
+    kept = phrases(cleaned)[:MAX_PHRASES]
+    return ", ".join(kept)
 
 
 def clean(text: str) -> str:
     text = re.sub(r"\s+", " ", (text or "").strip())
     text = text.strip('"\'` ')
-    text = re.sub(r"^(the image (shows|depicts)|this is)\s+", "", text, flags=re.I)
-    if text and not text.endswith("."):
-        pass
+    text = re.sub(r"^(the image (shows|depicts)|this is|a photograph of)\s+", "", text, flags=re.I)
     return text.rstrip(".")
 
 
 def acceptable(text: str) -> bool:
+    """接纳判据：短语数够、明显是英文、长度在 CLIP 77 token 预算内（≈ 55 词以内）。"""
     if not text or len(text) < 12 or len(text) > 320:
         return False
     ascii_ratio = sum(1 for ch in text if ord(ch) < 128) / max(1, len(text))
-    return ascii_ratio > 0.9 and 3 <= len(text.split()) <= 60
+    if ascii_ratio <= 0.9:
+        return False
+    if not (MIN_PHRASES <= len(phrases(text)) <= MAX_PHRASES + 4):
+        return False
+    return 5 <= len(text.split()) <= 55
 
 
 def main() -> int:
@@ -61,6 +94,8 @@ def main() -> int:
     ap.add_argument("--max-new-tokens", type=int, default=90)
     ap.add_argument("--force", action="store_true", help="re-caption even if already done by this model")
     ap.add_argument("--dry-run", action="store_true", help="caption a few samples, write nothing")
+    ap.add_argument("--checkpoint-every", type=int, default=25,
+                    help="每 N 张就把 manifest/captions 落盘一次，被中止后可续跑（0=只在结束时写）")
     args = ap.parse_args()
 
     os.environ.setdefault("HF_HOME", str(ROOT / "models" / "hf_cache"))
@@ -90,6 +125,23 @@ def main() -> int:
     kept = 0
     failed = 0
     started = time.time()
+
+    def flush() -> None:
+        """增量落盘：manifest 与 captions 都写。
+
+        为什么必须有：2026-09-13 的一次运行在 15 分钟处被中止，因为脚本只在**跑完时**才写文件，
+        已完成的部分全部作废。现在每 `--checkpoint-every` 张就落盘一次，重启时 todo 过滤器会
+        跳过已带 recaption_model 的条目，续跑代价降到"最多丢 N 张"。
+        `.bak` 只在第一次落盘时创建（保留原始 BLIP caption），避免后续覆盖。
+        """
+        backup = path.with_suffix(".json.bak")
+        if not backup.exists():
+            backup.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
+        os.replace(tmp, path)                       # 原子替换，避免中断留下半截 JSON
+        Path(args.out).write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
+
     for index, item in enumerate(todo):
         try:
             image = Image.open(item["file"]).convert("RGB")
@@ -97,24 +149,35 @@ def main() -> int:
                 scale = args.max_edge / max(image.size)
                 image = image.resize((max(64, int(image.width * scale)), max(64, int(image.height * scale))),
                                      Image.LANCZOS)
-            messages = [{"role": "user", "content": [
-                {"type": "image"},
-                {"type": "text", "text": INSTRUCTION},
-            ]}]
-            prompt = processor.apply_chat_template(messages, add_generation_prompt=True)
-            inputs = processor(text=[prompt], images=[image], return_tensors="pt").to("cuda")
-            with torch.no_grad():
-                out = model.generate(**inputs, max_new_tokens=args.max_new_tokens, do_sample=False)
-            generated = processor.batch_decode(
-                [chunk[len(one):] for one, chunk in zip(inputs.input_ids, out)],
-                skip_special_tokens=True)[0]
-            caption = clean(generated)
+
+            def ask(instruction: str) -> str:
+                messages = [{"role": "user", "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": instruction},
+                ]}]
+                prompt = processor.apply_chat_template(messages, add_generation_prompt=True)
+                inputs = processor(text=[prompt], images=[image], return_tensors="pt").to("cuda")
+                with torch.no_grad():
+                    out = model.generate(**inputs, max_new_tokens=args.max_new_tokens,
+                                         do_sample=False)
+                return processor.batch_decode(
+                    [chunk[len(one):] for one, chunk in zip(inputs.input_ids, out)],
+                    skip_special_tokens=True)[0]
+
+            # 先归一成"逗号短语"形状，再判接纳；不合格就用加强版指令**重试一次**
+            # （成本只花在失败样本上：实测首轮接纳率约 33%，重试后显著提高）
+            caption = normalize(ask(INSTRUCTION))
+            retried = False
+            if not acceptable(caption):
+                caption = normalize(ask(INSTRUCTION_RETRY))
+                retried = True
             if acceptable(caption):
                 if STYLE_TAG not in caption.lower():
                     caption = f"{caption}, {STYLE_TAG}"
                 item.setdefault("caption_blip", item.get("caption", ""))
                 item["caption"] = caption
                 item["recaption_model"] = args.model
+                item["recaption_retried"] = retried
                 results[item.get("entry", item["file"])] = caption
             else:
                 kept += 1
@@ -129,6 +192,9 @@ def main() -> int:
             rate = (time.time() - started) / (index + 1)
             print(f"  {index + 1}/{len(todo)} kept={kept} failed={failed} "
                   f"{rate:.2f}s/img eta={(len(todo) - index - 1) * rate / 60:.1f}min", flush=True)
+        if not args.dry_run and args.checkpoint_every and (index + 1) % args.checkpoint_every == 0:
+            flush()
+            print(f"  [ckpt] 已落盘 {index + 1}/{len(todo)}", flush=True)
 
     print(f"\ndone: recaptioned={len(results)} kept_original={kept} failed={failed} "
           f"elapsed={(time.time() - started) / 60:.1f}min")
@@ -138,12 +204,11 @@ def main() -> int:
         print("dry-run: nothing written")
         return 0
 
-    path.with_suffix(".json.bak").write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
-    Path(args.out).write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
+    flush()
     print(f"manifest updated: {path}\nbackup: {path.with_suffix('.json.bak')}\ncaptions: {args.out}")
     print("NOTE: latent 缓存里的文本嵌入已过期，重新训练前请重建缓存：")
-    print("  python precompute_v5.py --res 640 --out dataset1024/cache_v6_640.pt")
+    print("  python precompute_v5.py --base SG161222/Realistic_Vision_V6.0_B1_noVAE --arch sd15 \\")
+    print("      --res 640 --crops 3 --out dataset1024/cache_v6_qwen640.pt")
     return 0
 
 

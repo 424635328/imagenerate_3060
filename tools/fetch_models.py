@@ -51,6 +51,9 @@ HF_TARGETS = {
     "sr": ("Kim2091/UltraSharp", ["4x-UltraSharp.pth"], {
         "4x-UltraSharp.pth": MODELS / "sr",
     }),
+    "lightning": ("ByteDance/SDXL-Lightning", ["sdxl_lightning_4step_lora.safetensors"], {
+        "sdxl_lightning_4step_lora.safetensors": MODELS / "lightning",
+    }),
 }
 
 # RealESRGAN_x4plus.pth 只在官方 release 上（HF 镜像里叫 RealESRGAN_x4.pth，并非同一文件）
@@ -83,6 +86,9 @@ def fetch_hf(target: str) -> None:
         if not source:
             print(f"[{target}] !! {name} not found in snapshot")
             continue
+        # huggingface_hub 的 snapshot 里是**符号链接**；直接 os.link 它，Windows 会复制
+        # 重解析点（相对目标在别处失效 → 0 字节断链）。必须先解析到真实 blob。
+        source = source.resolve()
         destination.mkdir(parents=True, exist_ok=True)
         local = destination / name
         if local.exists() and local.stat().st_size == source.stat().st_size:
@@ -92,7 +98,11 @@ def fetch_hf(target: str) -> None:
             os.link(source, local)              # hardlink when on the same volume
         except OSError:
             shutil.copy2(source, local)
-        print(f"[{target}] -> {local.relative_to(ROOT)}  ({human(destination)})")
+        if local.stat().st_size != source.stat().st_size:
+            # 任何异常落位（断链/截断）都用真实复制兜底，宁可慢也不要坏文件
+            local.unlink(missing_ok=True)
+            shutil.copy2(source, local)
+        print(f"[{target}] -> {local.relative_to(ROOT)}  ({local.stat().st_size / 1024 ** 2:.0f} MB)")
     print(f"[{target}] snapshot: {snapshot}")
 
 
@@ -111,7 +121,7 @@ def fetch_direct(target: str) -> None:
 def main() -> int:
     targets = sys.argv[1:] or ["all"]
     if "all" in targets:
-        targets = ["sd15", "sdxl", "lcm", "sr", "realesrgan"]
+        targets = ["sd15", "sdxl", "lcm", "sr", "realesrgan", "lightning"]
     for target in targets:
         if target in HF_TARGETS:
             fetch_hf(target)

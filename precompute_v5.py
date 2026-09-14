@@ -18,6 +18,7 @@ import json
 import math
 import os
 import random
+import sys
 import time
 from pathlib import Path
 
@@ -101,11 +102,23 @@ def main() -> int:
     from diffusers import AutoencoderKL
     device = args.device
     arch = args.arch
+    # 基座解析到本地目录并全程离线：HF Hub id 会让 transformers/diffusers 联网取文件，
+    # 在代理环境下会以 SSL 错误失败（2026-09-13 SDXL 主线被误判中止的根因）。
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
+    from sdxl_base import offline_kwargs, resolve_base
+    resolved = resolve_base(args.base)
+    if resolved != args.base:
+        print(f"base resolved: {args.base} -> {resolved}")
+    args.base = resolved
+    offline = offline_kwargs(args.base)
     if arch == "auto":
-        from huggingface_hub import snapshot_download
-        path = Path(snapshot_download(args.base, cache_dir=args.cache_dir + "/hub",
-                                      allow_patterns=["model_index.json", "*.json"]))
-        index = json.loads((path / "model_index.json").read_text(encoding="utf-8"))
+        if Path(args.base).is_dir():
+            index = json.loads((Path(args.base) / "model_index.json").read_text(encoding="utf-8"))
+        else:
+            from huggingface_hub import snapshot_download
+            path = Path(snapshot_download(args.base, cache_dir=args.cache_dir + "/hub",
+                                          allow_patterns=["model_index.json", "*.json"]))
+            index = json.loads((path / "model_index.json").read_text(encoding="utf-8"))
         arch = "sdxl" if "text_encoder_2" in index else "sd15"
     print(f"arch={arch} res={args.res} crops={args.crops} base={args.base} device={device}")
     # fp16 kernels are patchy on CPU; the validation path stays fp32
@@ -113,21 +126,22 @@ def main() -> int:
 
     if arch == "sdxl":
         from transformers import CLIPTokenizer, CLIPTextModel, CLIPTextModelWithProjection
-        tok = CLIPTokenizer.from_pretrained(args.base, subfolder="tokenizer")
-        tok2 = CLIPTokenizer.from_pretrained(args.base, subfolder="tokenizer_2")
+        tok = CLIPTokenizer.from_pretrained(args.base, subfolder="tokenizer", **offline)
+        tok2 = CLIPTokenizer.from_pretrained(args.base, subfolder="tokenizer_2", **offline)
         te = CLIPTextModel.from_pretrained(args.base, subfolder="text_encoder",
-                                           torch_dtype=dtype).to(device).eval()
+                                           torch_dtype=dtype, **offline).to(device).eval()
         te2 = CLIPTextModelWithProjection.from_pretrained(args.base, subfolder="text_encoder_2",
-                                                          torch_dtype=dtype).to(device).eval()
+                                                          torch_dtype=dtype, **offline).to(device).eval()
         embed = lambda cap: sdxl_embed(cap, tok, tok2, te, te2, device)   # noqa: E731
     else:
         from transformers import CLIPTokenizer, CLIPTextModel
-        tok = CLIPTokenizer.from_pretrained(args.base, subfolder="tokenizer")
+        tok = CLIPTokenizer.from_pretrained(args.base, subfolder="tokenizer", **offline)
         te = CLIPTextModel.from_pretrained(args.base, subfolder="text_encoder",
-                                           torch_dtype=dtype).to(device).eval()
+                                           torch_dtype=dtype, **offline).to(device).eval()
         embed = lambda cap: sd15_embed(cap, tok, te, device)              # noqa: E731
 
-    vae = AutoencoderKL.from_pretrained(args.base, subfolder="vae", torch_dtype=torch.float32)
+    vae = AutoencoderKL.from_pretrained(args.base, subfolder="vae", torch_dtype=torch.float32,
+                                        **offline)
     vae = vae.to(device).eval()
     scaling = SCALING[arch]
 

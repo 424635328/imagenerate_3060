@@ -40,8 +40,23 @@ ngrok http 8001
 
 # 部署前端
 $env:NETLIFY_AUTH_TOKEN = '<你的 Netlify 令牌>'
-npx --yes netlify-cli@latest deploy --dir site --prod --site <SITE_ID> --auth $env:NETLIFY_AUTH_TOKEN
+$env:NETLIFY_SITE_ID    = '<SITE_ID>'
+# 本机代理（FlClash 等）对 api.netlify.com 会 TLS 断连，而直连可达 → 部署前先清代理变量
+$env:HTTP_PROXY = ''; $env:HTTPS_PROXY = ''; $env:ALL_PROXY = ''; $env:NO_PROXY = '*'
+pwsh -NoProfile -File tools/dev.ps1 deploy
 ```
+
+## 网络与远端（2026-09-14 实测）
+
+| 场景 | 现象 | 处理 |
+|---|---|---|
+| `git push` 走 HTTPS | 代理下 `schannel: failed to receive handshake`；直连也会被 reset | **改用 SSH**：`git remote set-url origin git@github.com:<用户>/<仓库>.git`（本机 `~/.ssh/id_rsa_github` 已授权） |
+| `netlify deploy` | Node 读取 `HTTPS_PROXY` → `Client network socket disconnected before secure TLS connection` | 部署前清空 `HTTP_PROXY/HTTPS_PROXY/ALL_PROXY` 并设 `NO_PROXY=*`（直连 `api.netlify.com` 返回 200） |
+| HuggingFace 下载 | 代理下 `SSL: UNEXPECTED_EOF_WHILE_READING`；新版 Xet 协议更容易卡 | 设 `HF_HUB_DISABLE_XET=1` + 逐个文件 `hf_hub_download`；权重已下好后统一 `HF_HUB_OFFLINE=1` |
+| 代理本身 | 某段时间 `127.0.0.1:7890` 对 GitHub/HF 均返回 000 | 先 `curl -x http://127.0.0.1:7890 https://github.com/` 探测，再决定走代理还是直连 |
+
+> 注意：`git config --global https.proxy` 曾被写成 `https://127.0.0.1:7890`（协议应为 `http://`），
+> 这会让 git 对代理本身发起 TLS；已修正为 `http://127.0.0.1:7890`。
 
 ## 待办（安全）
 

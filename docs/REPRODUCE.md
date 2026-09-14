@@ -108,16 +108,94 @@ python train_v5.py --config config_v5.cfg --resume latest                  # 断
 python tools\compare_adapters.py --adapters "V4:models\v4_640\adapter_best" "V5:models\v5_lora\adapter_best"
 python tools\test_adapter_load.py models\v5_lora\adapter_best              # 部署门禁：能被推理栈加载
 
-# ── SDXL QLoRA（质量跃升路线；int8 基座 + fp16 LoRA）──
+# ── SDXL QLoRA（**本机实测不可行**，见 docs/TRAINING.md §10.3；命令保留供云端/大显存复现）──
 python tools\test_qlora_path.py                                            # 先跑单测（1 分钟）
-python tools\probe_sdxl_train.py                                           # 6 GB 上可行分辨率
+python tools\probe_sdxl_train.py                                           # 逐档实测：本机 50-65 s/micro-batch
 python precompute_v5.py --base SG161222/RealVisXL_V5.0 --arch sdxl --res 1024 `
        --out dataset1024\cache_v5_sdxl1024.pt
 python train_v5.py --config config_v5_sdxl.cfg
+# 基座一律经 tools\sdxl_base.py 解析到**本地快照**并离线加载：走 HF Hub id 会联网取文件，
+# 在代理环境下以 SSL 错误失败，且会被探针误记成"显存不足"（2026-09-13 事故）
 
 # ── 无人值守（共享显卡：自动等显存 + OOM 续训 + 全链路接管）──
 python tools\train_driver.py  --config config_v5.cfg --save_every 250 --resume latest
 python tools\train_pipeline.py --v5-out models/v5_lora --sdxl-config config_v5_sdxl.cfg
+# ↑ 流水线内含「4 步冒烟门」：用真实缓存跑通量化+缓存文本条件+验证+导出，才启动长跑
+#   探针全 FAIL 且无 OOM 时会被判为 infrastructure（环境故障），而不是"显存不够"
+
+# ── V5b：补训 CLIP 文本编码器（对齐 V4 部署形态，实测 3.4 s/step，约 70 分钟）──
+python tools\train_driver.py --script train_v5.py --config config_v5b.cfg `
+       --save_every 200 --min-free 2.5
+# 产出 models\v5b_lora\adapter_best\{adapter_model.safetensors,adapter_config.json}
+#      + models\v5b_lora\adapter_best_text_encoder.pt（正是 app.py 期望的文件名）
+
+# ── 免训练模型融合（CPU 自实现 LoRA 算术 + SVD 重压缩，可与 GPU 训练并行）──
+python tools\merge_lora.py --adapters models\v4_640\adapter_best models\v5_lora\adapter_best `
+       --methods linear slerp ties dare_ties --weights 0.5 0.5 --out models\merged
+# 门禁：融合产物必须证明"等效增量非零且符合算子定义"，否则不许进评测
+python tools\verify_merge.py --sources models\v4_640\adapter_best models\v5_lora\adapter_best `
+       --merged models\merged --weights 0.5 0.5
+python tools\test_merge_math.py                     # 融合算术单测 + no-op 事故回归（28 项，纯 CPU）
+# 先看代价（不加载模型、不占显存），确认复用/重算与 ETA 后再真跑
+python tools\eval_val_mse.py --plan --adapters "V4:models\v4_640\adapter_best" "ties:models\merged\ties_0.50_0.50" `
+       --cache dataset1024\cache_v4_640.pt --csv research\eval_merged.csv
+python tools\eval_val_mse.py --adapters "BASE:" "V4:models\v4_640\adapter_best" "V5:models\v5_lora\adapter_best" `
+       "linear:models\merged\linear_0.50_0.50" "slerp:models\merged\slerp_0.50_0.50" `
+       "ties:models\merged\ties_0.50_0.50" "dare_ties:models\merged\dare_ties_0.50_0.50" `
+       --cache dataset1024\cache_v4_640.pt --csv research\eval_merged.csv    # 每完成一行即落盘
+# ↑ 锚点行可从 research\eval_val.csv 预置（同协议会自动复用）；被中断后重跑即从断点继续
+
+# ── 评测（三层证据）──
+python tools\eval_val_mse.py --adapters "BASE:" "V4:models\v4_640\adapter_best" "V5:models\v5_lora\adapter_best" `
+       --cache dataset1024\cache_v4_640.pt --csv research\eval_val.csv     # 固定协议 val（可比）
+python tools\make_eval_report.py --run-val --with-images   # 汇总 val + 出图 + CLIP → docs/EVAL_REPORT.md
+#   ↑ 含 SDXL 线：自动带 SDXL 基座锚点跑 val（research\eval_val_sdxl.csv），
+#     并调 tools\compare_sdxl.py 出 SDXL 的前后对比页（research\compare_sdxl\）
+python tools\test_pipeline_logic.py                # 分辨率决策 / 探针解析 / 故障归类（16 项）
+python tools\test_eval_plan.py                     # 评测协议/续跑/配对统计/并表（91 项）
+python tools\test_sr_and_judge.py                  # 自训超分接入 + 输入校验 + 裁判统计（32 项）
+python tools\test_merge_math.py                    # 融合算术 + no-op 事故回归（28 项）
+python tools\test_sdxl_base.py                     # 基座解析到本地快照（13 项）
+
+# ── 自研判据：留出 prompt 的分布距离 + 盲测成对偏好裁判 ──
+python tools\eval_fid.py --adapters "V4:models\v4_640\adapter_best" "V5b:models\v5b_lora\adapter_best" `
+       --out research\fid --steps 24 --res 512 --seeds 2
+#   ↑ 24 条自拟留出提示词；KID/CLIP-FID（与真实照片的分布距离）+ 留出 prompt 的 CLIP 一致性
+python tools\vlm_judge.py --a "V4:models\v4_640\adapter_best" --b "V6:models\v6_qwen\adapter_best" `
+       --out research\judge_final --steps 24 --res 512 --seeds 2
+#   ↑ 本地 Qwen2-VL-2B 当裁判：随机左右交换（盲测）+ 强制选择 + Wilson 95% 区间
+
+# ── caption 质量实验（VLM 重写 → 重建缓存 → 同配方训练）──
+python tools\recaption_driver.py --manifest dataset1024\manifest.json `
+       --out dataset1024\captions_qwen.json --checkpoint-every 25 --max-edge 512
+#   ↑ 带心跳看门狗（卡死自动续跑）；每 25 张增量落盘，manifest 有 .bak 备份
+python precompute_v5.py --base SG161222/Realistic_Vision_V6.0_B1_noVAE --arch sd15 `
+       --res 640 --crops 3 --out dataset1024\cache_v6_qwen640.pt
+python tools\train_driver.py --script train_v5.py --config config_v6q.cfg --save_every 500 --min-free 1.8
+
+# ── 推理侧：6 GB 能否跑 SDXL、有多快 ──
+python tools\fetch_models.py lightning             # SDXL-Lightning 4 步 LoRA（约 376 MB）
+python tools\probe_sdxl_infer.py                   # 逐档实测峰值显存与 s/image
+```
+
+> 定性判读（agent 用视觉逐格看对比页的结论）记录在 `docs/VISUAL_REVIEW.md`；
+> 它与定量判据互为补充：定性判读适合发现指标盲区（伪影、臆造文字），不适合判定 0.3% 量级的差异。
+
+### 6.1 超分 GAN（细节化放大，约 35 分钟）
+
+```powershell
+# 从官方 RealESRGAN_x4plus 初始化做风景领域微调：L1 + VGG19 感知 + 对抗
+python train_sr_gan.py --iters 4000 --hr-size 256 --batch 3
+# 或经驱动（断点续训 + 显存等待）
+python tools\train_driver.py --script train_sr_gan.py --iters 4000 --hr-size 256 --batch 3
+
+# 证据：bicubic vs RealESRGAN vs UltraSharp vs 本项目 GAN（PSNR/SSIM + 细节量 + 对比拼版）
+python tools\probe_sr_model.py --images 8 --out research\sr_probe
+
+# 接入生产线（已完成，2026-09-14）：注册名 `ours` / `ours_final`
+#   Gradio / FastAPI / 网页前端三处默认都指向它；可用 SR_MODEL 环境变量回退商用权重
+python tools\deploy_check.py                       # 静态检查线上到底加载哪份权重
+python tools\test_sr_and_judge.py                  # 注册表 + 输入校验 + 三入口一致性（32 项）
 ```
 
 方法与论文依据见 [TRAINING.md](TRAINING.md)（min-SNR-γ / Prodigy / DoRA / QLoRA 均有引用与实测数据）。

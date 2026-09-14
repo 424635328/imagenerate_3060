@@ -25,7 +25,8 @@ import torch
 ROOT = Path(os.environ.get("LANDSCAPE_ROOT") or Path(__file__).resolve().parents[1])
 sys.path.insert(0, str(ROOT))
 from train_v5 import quantize_unet_8bit  # noqa: E402  — same code path as training
-BASE = os.environ.get("BASE_MODEL", "SG161222/RealVisXL_V5.0")
+from sdxl_base import describe, offline_kwargs, resolve_base  # noqa: E402
+BASE = resolve_base(os.environ.get("BASE_MODEL", "SG161222/RealVisXL_V5.0"))
 CACHE_DIR = os.environ.get("HF_CACHE", str(ROOT / "models" / "hf_cache"))
 
 
@@ -38,9 +39,15 @@ def free() -> None:
 def build_unet(base: str, quantized: bool):
     """Mirrors train_v5.py exactly: manual int8 replacement (validated by
     tools/test_qlora_path.py).  diffusers' own quantizer does not cover plain
-    UNet2DConditionModel, so the probe must not rely on it."""
+    UNet2DConditionModel, so the probe must not rely on it.
+
+    基座一律解析到本地目录并 `local_files_only=True`：用 HF Hub id 会让 diffusers
+    去联网取文件，在代理环境下会以 SSL 错误失败，而失败会被误读成"显存不够"
+    （2026-09-13 事故：五种模式全部 FAIL，流水线据此中止了整条 SDXL 主线）。
+    """
     from diffusers import UNet2DConditionModel
-    unet = UNet2DConditionModel.from_pretrained(base, subfolder="unet", torch_dtype=torch.float16)
+    unet = UNet2DConditionModel.from_pretrained(base, subfolder="unet", torch_dtype=torch.float16,
+                                                **offline_kwargs(base))
     if quantized:
         print(f"  quantized {quantize_unet_8bit(unet)} Linear layers to int8")
     unet.requires_grad_(False)
@@ -95,7 +102,8 @@ def main() -> int:
     os.environ.setdefault("HF_HUB_CACHE", CACHE_DIR + "/hub")
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
-    print(f"base={args.base}")
+    args.base = resolve_base(args.base)
+    print(f"base={describe(args.base)}")
     print(f"gpu={torch.cuda.get_device_name(0)} total={torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f}GB")
     results = []
     for mode in [m.strip() for m in args.modes.split(",") if m.strip()]:
