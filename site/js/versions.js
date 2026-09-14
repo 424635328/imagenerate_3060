@@ -18,8 +18,18 @@ const $ = (selector) => document.querySelector(selector);
 const PICK_KEY = 'lsart_verdicts_v1';
 const PREF_KEY = 'lsart_judge_prefs_v1';
 const SLOTS = ['A', 'B', 'C', 'D'];
-/* 本机收集器（tools/judge_collector.py）。用 ?judge=http://127.0.0.1:8899 可换端口。 */
-const COLLECTOR = new URLSearchParams(location.search).get('judge') || 'http://127.0.0.1:8787';
+/* 提交去哪儿：优先**同源**（用 tools/judge_collector.py 打开页面时就是同源，没有 CORS、
+   没有预检、没有混合内容），其次才是本机回环端口。?judge=... 可显式指定。 */
+const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '[::1]', '::1'];
+const COLLECTOR_CANDIDATES = (() => {
+  const override = new URLSearchParams(location.search).get('judge');
+  if (override) return [override.replace(/\/$/, '')];
+  const list = [];
+  if (LOOPBACK_HOSTS.includes(location.hostname)) list.push(location.origin);
+  list.push('http://127.0.0.1:8787', 'http://localhost:8787');
+  return [...new Set(list)];
+})();
+const COLLECTOR = COLLECTOR_CANDIDATES[0];
 
 const state = {
   data: null,
@@ -396,11 +406,17 @@ function renderTally() {
   if (note && state.submit.state === 'idle') {
     note.className = 'vb-submit-note';
     note.innerHTML = records.length
-      ? `已记录 ${records.length} 题 · 点「提交评判」把结果送到 <code>research/human_judge/</code>（本机收集器）`
+      ? `已记录 ${records.length} 题 · 点「提交评判」把结果送到 <code>research/human_judge/</code>`
+        + `<br><span class="muted" id="vbSubmitTarget"></span>`
       : '先判几题，提交按钮才会亮。';
   }
   const submit = $('#vbSubmit');
   if (submit) submit.disabled = records.length === 0 || state.submit.state === 'sending';
+  const hint = $('#vbSubmitTarget');
+  if (hint) {
+    hint.textContent = `提交目标：${COLLECTOR_CANDIDATES.join(' → ')}`
+      + (LOOPBACK_HOSTS.includes(location.hostname) ? '（同源优先）' : '（线上页需要本机服务在跑）');
+  }
   const groups = [
     { mode: 'blind4', label: '4 选 1 盲测', chance: 0.25, modes: ['blind4'] },
     { mode: 'open4', label: '4 选 1（未盲测）', chance: 0.25, modes: ['open4'] },
@@ -549,6 +565,12 @@ function setSubmit(status, message = '') {
     note.className = `vb-submit-note ${status}`;
     note.innerHTML = message;
   }
+  const hint = $('#vbSubmitTarget');
+  if (hint && status === 'idle') {
+    hint.textContent = COLLECTOR_CANDIDATES.length > 1
+      ? `提交目标：${COLLECTOR_CANDIDATES.join(' → ')}`
+      : `提交目标：${COLLECTOR}`;
+  }
 }
 
 /** 一次性授权：把结果直接写进你选的仓库目录（之后每次提交都不再弹窗）。 */
@@ -569,42 +591,44 @@ async function saveToChosenFolder(payload) {
 async function submit() {
   const payload = buildPayload();
   if (!payload.records.length) return;
-  setSubmit('sending', '正在提交到本机收集器…');
-  // 1) 首选：本机收集器（tools/judge_collector.py）—— 落盘到 research/human_judge/
-  try {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 6000);
-    const response = await fetch(`${COLLECTOR}/submit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    window.clearTimeout(timer);
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok || !body.ok) throw new Error(body.error || `HTTP ${response.status}`);
-    setSubmit('done', `✅ 已提交：<code>${body.file}</code>（${body.records} 条）<br>`
-      + `<span class="muted">${escapeHtml(body.summary?.headline || '')}</span>`);
-    return;
-  } catch (error) {
-    // 2) 次选：直接写进你选的目录（File System Access）
+  setSubmit('sending', '正在提交到本机评判服务…');
+  // 1) 首选：本机服务（tools/judge_collector.py）—— 同源或回环，逐个候选试
+  const attempts = [];
+  for (const base of COLLECTOR_CANDIDATES) {
     try {
-      const file = await saveToChosenFolder(payload);
-      setSubmit('done', `✅ 已写入 <code>${escapeHtml(file)}</code>（${payload.records.length} 条）<br>`
-        + '<span class="muted">把它放进仓库的 research/human_judge/ 即可</span>');
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 6000);
+      const response = await fetch(`${base}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      window.clearTimeout(timer);
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.ok) throw new Error(body.error || `HTTP ${response.status}`);
+      setSubmit('done', `✅ 已提交：<code>${body.file}</code>（${body.records} 条）<br>`
+        + `<span class="muted">${escapeHtml(body.summary?.headline || '')}</span>`);
       return;
-    } catch (fallbackError) {
-      // 3) 兜底：下载 + 说清楚怎么办
-      download('my-verdicts.json', JSON.stringify(payload, null, 1));
-      const why = error && error.name === 'AbortError' ? '收集器无响应' : (error?.message || error);
-      setSubmit('manual', `⚠ 没能自动送达（${escapeHtml(String(why))}）—— 已下载 `
-        + `<code>my-verdicts.json</code>。<br>`
-        + `要做成"一键送达"：先在本机跑 <code>python tools/judge_collector.py</code>`
-        + `（或 <code>pwsh -NoProfile -File tools/dev.ps1 judge</code>）再用本地页面提交；`
-        + `也可以把这个文件放进 <code>research/human_judge/</code> 告诉我一声。`);
-      void fallbackError;
+    } catch (error) {
+      attempts.push(`${base} → ${error && error.name === 'AbortError' ? '超时' : (error?.message || error)}`);
     }
   }
+  // 2) 次选：直接写进你选的目录（File System Access）
+  try {
+    const file = await saveToChosenFolder(payload);
+    setSubmit('done', `✅ 已写入 <code>${escapeHtml(file)}</code>（${payload.records.length} 条）<br>`
+      + '<span class="muted">把它放进仓库的 research/human_judge/ 即可</span>');
+    return;
+  } catch { /* 继续走兜底 */ }
+  // 3) 兜底：下载 + 说清楚怎么办（绝不静默失败）
+  download('my-verdicts.json', JSON.stringify(payload, null, 1));
+  setSubmit('manual', '⚠ 没能自动送达 —— 已下载 <code>my-verdicts.json</code>。<br>'
+    + '本机没跑评判服务，或浏览器连不上 127.0.0.1。试：<code>python tools/judge_collector.py</code> '
+    + '（或 <code>pwsh -NoProfile -File tools/dev.ps1 judge</code>），'
+    + '然后用它打印的地址打开本页再提交；也可以直接把这个文件放进 '
+    + '<code>research/human_judge/</code> 告诉我一声。'
+    + `<br><span class="muted">已尝试：${escapeHtml(attempts.join('；'))}</span>`);
 }
 
 function download(name, text, type = 'application/json') {

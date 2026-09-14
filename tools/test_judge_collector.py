@@ -35,6 +35,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import judge_collector as collector  # noqa: E402
 
+# 本机测试必须**绕开代理**：这台机器上有 HTTP_PROXY=http://127.0.0.1:7890，
+# urllib 会连 127.0.0.1 的请求也丢给代理，于是拿到 502 Bad Gateway（不是服务的问题）。
+# 实测踩过一次：静态站点那一段全部 502，看起来像"服务坏了"。
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+urllib.request.install_opener(OPENER)
+
 PASSED = 0
 FAILED: list[str] = []
 
@@ -223,58 +229,102 @@ def main() -> int:
                     check("落盘的每份都有服务端 summary",
                           all("summary" in json.loads(f.read_text(encoding="utf-8"))
                               for f in out.glob("verdicts_*.json")))
+
+        print("\n同一进程同时当站点服务器（页面与提交同源 ⇒ 没有 CORS/预检/混合内容）")
+        def get(path: str):
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as response:
+                return response.status, response.headers.get("Content-Type", ""), response.read()
+
+        code, ctype, body = get("/versions.html")
+        check("GET /versions.html 200 且是评测页", code == 200 and "text/html" in ctype
+              and "版本评判台" in body.decode("utf-8", "replace"))
+        code2, _, body2 = get("/versions")           # Netlify 那套干净 URL
+        check("GET /versions（干净 URL）也 200 且内容一致", code2 == 200 and body2 == body)
+        code, ctype, body = get("/gallery.html")
+        check("GET /gallery.html 200（零 JS 静态画廊）", code == 200 and "静态版" in body.decode("utf-8", "replace"))
+        code, ctype, _ = get("/data/versions.json")
+        check("GET /data/versions.json 200 + application/json", code == 200 and "application/json" in ctype)
+        code, ctype, body = get("/img/versions/V4/p00_s101.webp")
+        check("GET 图片 200 + image/webp", code == 200 and ctype == "image/webp" and body[:4] == b"RIFF")
+        code, ctype, _ = get("/js/versions.js")
+        check("GET /js/versions.js 200 + JS MIME", code == 200 and "javascript" in ctype)
+        for evil in ("/../tools/dev.ps1", "/%2e%2e/tools/dev.ps1", "/..%2ftools%2fdev.ps1",
+                     "/img/../../tools/dev.ps1"):
+            try:
+                code, _, _ = get(evil)
+            except urllib.error.HTTPError as error:
+                code = error.code
+            check(f"路径穿越被挡：{evil}", code != 200, f"HTTP {code}")
+        try:
+            code, _, body = get("/nope.html")
+        except urllib.error.HTTPError as error:
+            code, body = error.code, error.read()
+        check("未知路径 404 且提示可用页面", code == 404 and b"versions.html" in body, f"HTTP {code}")
+
+        # --no-site：只当收集器（页面另起服务时用）
+        collector._state["serve_site"] = False
+        try:
+            try:
+                code, _, _ = get("/versions.html")
+            except urllib.error.HTTPError as error:
+                code = error.code
+            check("--no-site 时不再发页面（但仍能收提交）", code == 404, f"HTTP {code}")
+            code, body, _ = post(port, json.dumps(base).encode(), "http://127.0.0.1:8799")
+            check("--no-site 时提交照常工作", code == 200 and body.get("ok"), f"{code}")
+        finally:
+            collector._state["serve_site"] = True
+
+        print("\n真实进程 + 非 UTF-8 控制台（回归：日志不能把请求搞挂）")
+        # 2026-09-15 真浏览器 E2E 实测：从管道启动时 Python 按 cp936 输出，日志里的
+        # `⇒` 无法编码 → print 抛异常 → 文件已落盘但响应发不出去 → 浏览器报 "Failed to fetch"
+        # 并重试（仓库里出现两份相同的评判）。这里把那个环境原样复现出来。
+        # 注意：落盘目录必须在项目内（收集器会拒绝任意路径），所以自测目录建在 research/ 下。
+        selftest_root = ROOT / "research" / "_collector_selftest"
+        shutil.rmtree(selftest_root, ignore_errors=True)
+        proc_dir = selftest_root / "out"
+        out_of_repo = subprocess.run([sys.executable, str(ROOT / "tools" / "judge_collector.py"),
+                                      "--out", str(tmp / "outside")],
+                                     cwd=ROOT, capture_output=True, text=True,
+                                     encoding="utf-8", errors="replace", timeout=30)
+        check("拒绝把结果写到项目外（防任意路径写入）",
+              out_of_repo.returncode != 0 and "必须在项目内" in (out_of_repo.stdout or "")
+              + (out_of_repo.stderr or ""), f"rc={out_of_repo.returncode}")
+
+        env = {**os.environ, "PYTHONIOENCODING": "cp936", "JUDGE_PORT": "0"}
+        proc = subprocess.Popen([sys.executable, str(ROOT / "tools" / "judge_collector.py"),
+                                 "--port", "8791", "--out", str(proc_dir)],
+                                cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, encoding="utf-8", errors="replace", env=env)
+        try:
+            ready = False
+            for _ in range(40):
+                try:
+                    with urllib.request.urlopen("http://127.0.0.1:8791/health", timeout=2) as response:
+                        ready = response.status == 200
+                        break
+                except Exception:                    # noqa: BLE001
+                    time.sleep(0.15)
+            check("子进程收集器在非 UTF-8 控制台下能起来", ready)
+            if ready:
+                code, body, _ = post(8791, json.dumps(base).encode(), "http://127.0.0.1:8799")
+                check("非 UTF-8 控制台下提交仍返回 200（日志不再中断响应）", code == 200 and body.get("ok"),
+                      f"{code} {body}")
+                saved_proc = list(proc_dir.glob("verdicts_*.json"))
+                check("且恰好落盘一份（浏览器不会因失败重试）", len(saved_proc) == 1,
+                      f"{len(saved_proc)} 份")
+        finally:
+            proc.terminate()
+            try:
+                out_log = proc.communicate(timeout=10)[0] or ""
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                out_log = ""
+            check("日志里能看到中文（已被强制成 UTF-8）", "评判已保存" in out_log, out_log[-200:])
+            shutil.rmtree(selftest_root, ignore_errors=True)
     finally:
         server.shutdown()
         server.server_close()
         shutil.rmtree(tmp, ignore_errors=True)
-
-    print("\n真实进程 + 非 UTF-8 控制台（回归：日志不能把请求搞挂）")
-    # 2026-09-15 真浏览器 E2E 实测：从管道启动时 Python 按 cp936 输出，日志里的
-    # `⇒` 无法编码 → print 抛异常 → 文件已落盘但响应发不出去 → 浏览器报 "Failed to fetch"
-    # 并重试（仓库里出现两份相同的评判）。这里把那个环境原样复现出来。
-    # 注意：落盘目录必须在项目内（收集器会拒绝任意路径），所以自测目录建在 research/ 下。
-    selftest_root = ROOT / "research" / "_collector_selftest"
-    shutil.rmtree(selftest_root, ignore_errors=True)
-    proc_dir = selftest_root / "out"
-    out_of_repo = subprocess.run([sys.executable, str(ROOT / "tools" / "judge_collector.py"),
-                                  "--out", str(tmp / "outside")],
-                                 cwd=ROOT, capture_output=True, text=True,
-                                 encoding="utf-8", errors="replace", timeout=30)
-    check("拒绝把结果写到项目外（防任意路径写入）",
-          out_of_repo.returncode != 0 and "必须在项目内" in (out_of_repo.stdout or "")
-          + (out_of_repo.stderr or ""), f"rc={out_of_repo.returncode}")
-
-    env = {**os.environ, "PYTHONIOENCODING": "cp936", "JUDGE_PORT": "0"}
-    proc = subprocess.Popen([sys.executable, str(ROOT / "tools" / "judge_collector.py"),
-                             "--port", "8791", "--out", str(proc_dir)],
-                            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, encoding="utf-8", errors="replace", env=env)
-    try:
-        ready = False
-        for _ in range(40):
-            try:
-                with urllib.request.urlopen("http://127.0.0.1:8791/health", timeout=2) as response:
-                    ready = response.status == 200
-                    break
-            except Exception:                    # noqa: BLE001
-                time.sleep(0.15)
-        check("子进程收集器在非 UTF-8 控制台下能起来", ready)
-        if ready:
-            code, body, _ = post(8791, json.dumps(base).encode(), "http://127.0.0.1:8799")
-            check("非 UTF-8 控制台下提交仍返回 200（日志不再中断响应）", code == 200 and body.get("ok"),
-                  f"{code} {body}")
-            saved_proc = list(proc_dir.glob("verdicts_*.json"))
-            check("且恰好落盘一份（浏览器不会因失败重试）", len(saved_proc) == 1,
-                  f"{len(saved_proc)} 份")
-    finally:
-        proc.terminate()
-        try:
-            out_log = proc.communicate(timeout=10)[0] or ""
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            out_log = ""
-        check("日志里能看到中文（已被强制成 UTF-8）", "评判已保存" in out_log, out_log[-200:])
-        shutil.rmtree(selftest_root, ignore_errors=True)
 
     print(f"\n结果：{PASSED} 项通过，{len(FAILED)} 项失败")
     for name in FAILED:

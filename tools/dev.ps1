@@ -137,23 +137,20 @@ switch ($Task) {
 
   'judge' {
     Need-Python
-    Say '起本机评判收集器（127.0.0.1:8787 → research/human_judge/）'
-    $collector = Start-Process -FilePath $Python -ArgumentList 'tools\judge_collector.py' -PassThru -WindowStyle Hidden
-    Start-Sleep -Milliseconds 800
-    $port = 8799
-    Say "起本地静态站点：http://127.0.0.1:$port/versions.html"
+    $port = if ($env:JUDGE_PORT) { $env:JUDGE_PORT } else { 8787 }
+    Say "启动评判服务（页面 + 提交接口同源）：http://127.0.0.1:$port/versions.html"
     Write-Host ''
-    Write-Host '  浏览器打开上面这个地址 → 点「开始盲测」→ 每题选一张 →' -ForegroundColor White
-    Write-Host '  最后点「提交评判」，结果会直接落到 research/human_judge/' -ForegroundColor White
+    Write-Host "  1) 浏览器打开  http://127.0.0.1:$port/versions.html" -ForegroundColor White
+    Write-Host '  2) 默认就是盲测：标签是 A/B/C/D，顺序每题为随机但可复现' -ForegroundColor White
+    Write-Host '  3) 判完点「📤 提交评判」→ 结果直接落到 research/human_judge/' -ForegroundColor White
     Write-Host ''
-    Write-Host '  Ctrl+C 结束（同时会关闭收集器）' -ForegroundColor DarkGray
-    try {
-      & $Python -m http.server $port --bind 127.0.0.1 --directory site
-    } finally {
-      if ($collector -and -not $collector.HasExited) { Stop-Process -Id $collector.Id -Force }
-      Say '已停止收集器'
-    }
-    exit 0
+    Write-Host "  打不开先试 http://127.0.0.1:$port/health —— 应返回一段 JSON。" -ForegroundColor DarkGray
+    Write-Host '  如果连它都打不开，说明浏览器把 127.0.0.1 也走了代理（见 LOCAL_NOTES 的代理说明），' -ForegroundColor DarkGray
+    Write-Host '  把 127.0.0.1/localhost 加进代理绕过列表，或换一个没配代理的浏览器。' -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host '  Ctrl+C 停止' -ForegroundColor DarkGray
+    & $Python tools\judge_collector.py --port $port
+    exit $LASTEXITCODE
   }
 
   'bench' {

@@ -70,7 +70,6 @@ function killChromeByProfile(profileDir) {
   try { spawnSync('powershell', ['-NoProfile', '-Command', script], { stdio: 'ignore' }); } catch { /* 忽略 */ }
 }
 
-const STATIC_PORT = await freePort();
 const DEBUG_PORT = await freePort();
 
 const results = [];
@@ -81,15 +80,15 @@ const before = existsSync(OUT_DIR) ? new Set(readdirSync(OUT_DIR)) : new Set();
 mkdirSync(OUT_DIR, { recursive: true });
 
 /* --------------------------------------------------------------- 起服务 */
-const collector = spawn(python, [path.join(ROOT, 'tools', 'judge_collector.py')],
+// 只起**一个**进程：评判服务自己就把 site/ 发出去（页面与提交接口同源）。
+const judgePort = await freePort();
+const collector = spawn(python, [path.join(ROOT, 'tools', 'judge_collector.py'), '--port', String(judgePort)],
   { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
 let collectorLog = '';
 collector.stdout.on('data', (chunk) => { collectorLog += chunk.toString(); });
 collector.stderr.on('data', (chunk) => { collectorLog += chunk.toString(); });
 
-const staticServer = spawn(python, ['-m', 'http.server', String(STATIC_PORT),
-  '--bind', '127.0.0.1', '--directory', 'site'], { cwd: ROOT, stdio: 'ignore' });
-
+const JUDGE = `http://127.0.0.1:${judgePort}`;
 const profile = path.join(process.env.TEMP || '/tmp', `lsart-e2e-${Date.now()}`);
 const chrome = spawn(chromePath, [
   '--headless=new', '--disable-gpu', '--no-first-run', '--no-proxy-server',
@@ -101,7 +100,6 @@ const cleanup = () => {
   killChromeByProfile(profile);
   killTree(chrome);
   killTree(collector);
-  killTree(staticServer);
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try { rmSync(profile, { recursive: true, force: true }); break; } catch { /* 稍后再试 */ }
   }
@@ -152,7 +150,14 @@ async function run() {
 
   await send('Page.enable');
   await send('Runtime.enable');
-  const url = `http://127.0.0.1:${STATIC_PORT}/versions.html`;
+  // 等评判服务把站点发出来（一个进程既是页面服务器也是提交接口）
+  let served = false;
+  for (let attempt = 0; attempt < 40 && !served; attempt += 1) {
+    try { served = (await fetch(`${JUDGE}/versions.html`)).ok; } catch { await sleep(250); }
+  }
+  check('E2E: 单进程评判服务把页面发出来了（无需第二个静态服务器）', served);
+
+  const url = `${JUDGE}/versions.html`;
   await send('Page.navigate', { url });
   // 等页面把 versions.json 读完并渲染出四联格
   for (let attempt = 0; attempt < 60; attempt += 1) {
@@ -209,6 +214,13 @@ async function run() {
   const noteBefore = await evaluate('document.getElementById("vbSubmitNote").textContent');
   check('E2E: 提交按钮已可用', await evaluate('document.getElementById("vbSubmit").disabled === false'));
   check('E2E: 提交前提示里写了会送到哪里', /human_judge/.test(noteBefore), noteBefore.slice(0, 80));
+  check('E2E: 提交目标是**同源**（页面与接口同一个端口，没有 CORS）',
+    await evaluate(`document.getElementById('vbSubmitTarget')?.textContent.includes(location.origin) === true`),
+    await evaluate("document.getElementById('vbSubmitTarget')?.textContent"));
+  check('E2E: 静态资源也由同一个服务提供（图片 200）',
+    (await fetch(`${JUDGE}/img/versions/V4/p00_s101.webp`)).ok);
+  check('E2E: 路径穿越被挡（/../tools/dev.ps1 不是 200）',
+    (await fetch(`${JUDGE}/../tools/dev.ps1`)).status !== 200);
 
   // ★ 真正的"点一下提交"
   await evaluate('document.getElementById("vbSubmit").click(), true');

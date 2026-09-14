@@ -1,9 +1,16 @@
-"""judge_collector.py — 接收"版本评判台"的人工评判结果（本机回环，无令牌）。
+"""judge_collector.py — 评判页 + 评判收集器（一个进程，一个地址，本机回环，无令牌）。
 
 为什么需要它：`site/versions.html` 是纯静态页面，浏览器没法把结果写进仓库；
-而人工盲测的价值全在"结果能回到作者手里"。这个服务只做一件事：
+而人工盲测的价值全在"结果能回到作者手里"。这个服务同时做两件事：
 
-    POST /submit  →  把评判记录原子写入 research/human_judge/verdicts_<时间>.json
+    GET  /*            → 直接把 site/ 当静态站点发出去（含 /versions.html 与图片）
+    POST /submit       → 把评判记录原子写入 research/human_judge/verdicts_<时间>.json
+
+**为什么页面和接口必须同源**（2026-09-15 改）：早先的设计是"静态站点一个端口 +
+收集器另一个端口"，于是页面的提交变成跨源请求，要过 CORS、要过 Chrome 的私网访问
+（Private Network Access）预检，而线上 HTTPS 页面往 http://127.0.0.1 发请求还可能被
+混合内容策略挡掉。现在两者同源：**没有 CORS、没有预检、没有混合内容**，
+浏览器只要能把 127.0.0.1 打开，就一定能提交。
 
 设计约束（都很保守，因为它监听在本机回环上）：
   · **只监听 127.0.0.1**，不暴露到局域网，更不上公网；没有令牌，因为不需要 —— 它不碰
@@ -13,15 +20,17 @@
     `JUDGE_STRICT=1` 时无 Origin 也拒绝。
   · **预算**：body ≤ 64 KB、记录 ≤ 200 条、字段类型逐项校验；超限/畸形一律 4xx + 原因。
   · **自己算一遍**：服务端**独立重算**胜场与 Wilson 区间（不信任页面传上来的 summary），
-    并把两者的差异写进文件 —— 与项目其它地方一样，"数字要能复算"。
+    并把两者的**数字**差异写进文件 —— 与项目其它地方一样，"数字要能复算"。
   · **原子落盘**：`.tmp` → `os.replace()`；同时更新 `latest.json` 方便查看。
   · 文件名只由服务端生成（时间戳 + 随机后缀），**不使用任何客户端提供的名字**（防路径穿越）。
+  · 静态服务只发 `site/` 目录内的文件，路径穿越（`..`）一律 404。
 
 用法:
-    python tools/judge_collector.py                 # 监听 127.0.0.1:8787
-    python tools/judge_collector.py --port 8899     # 换端口（页面用 ?judge=http://127.0.0.1:8899 对接）
+    python tools/judge_collector.py                 # 页面 http://127.0.0.1:8787/versions.html
+    python tools/judge_collector.py --port 8899     # 换端口
+    python tools/judge_collector.py --no-site       # 只当收集器（页面自己另起服务）
     python tools/judge_collector.py --once          # 收到一条就退出（脚本化用）
-    pwsh -NoProfile -File tools/dev.ps1 judge       # 一条命令起服务 + 静态站点
+    pwsh -NoProfile -File tools/dev.ps1 judge       # 同上，一条命令
 """
 from __future__ import annotations
 
@@ -51,9 +60,26 @@ DEFAULT_ORIGINS = (
 # 本站的 Origin 可能是任意 deploy-preview 子域，因此按后缀放行
 ORIGIN_SUFFIX = ".netlify.app"
 VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_+\-.]{0,15}$")
+# 静态服务用得到的 MIME（页面依赖 .webp/.json/.js/.css）
+MIME = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".webp": "image/webp",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".txt": "text/plain; charset=utf-8",
+    ".webmanifest": "application/manifest+json",
+}
 
 _write_lock = threading.Lock()          # 同一时刻只允许一次落盘
-_state = {"out": ROOT / "research" / "human_judge", "strict": False, "received": 0}
+_state = {"out": ROOT / "research" / "human_judge", "strict": False, "received": 0,
+          "serve_site": True, "site_root": (ROOT / "site").resolve()}
 
 
 def wilson(wins: int, total: int, z: float = 1.96) -> tuple[float, float]:
@@ -264,11 +290,46 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:                            # noqa: N802
         path = urlparse(self.path).path
-        if path in ("/health", "/"):
+        if path in ("/health", "/healthz"):
             self._reply(200, {"ok": True, "service": "lsart-judge-collector", "schema": 1,
-                              "received": _state["received"], "out": display(_state["out"])})
+                              "received": _state["received"], "out": display(_state["out"]),
+                              "site": bool(_state["serve_site"])})
             return
-        self._reply(404, {"ok": False, "error": f"未知路径 {path}（只有 /health 与 /submit）"})
+        if not _state["serve_site"]:
+            self._reply(404, {"ok": False, "error": f"未知路径 {path}（--no-site 时只有 /health 与 /submit）"})
+            return
+        self._serve_static(path)
+
+    # ------------------------------------------------------- 静态站点（同源）
+    def _serve_static(self, path: str) -> None:
+        """把 site/ 当静态根发出去。只发目录内的文件，路径穿越一律 404。"""
+        site_root: Path = _state["site_root"]
+        relative = path.lstrip("/") or "index.html"
+        if relative.endswith("/"):
+            relative += "index.html"
+        if not relative.endswith(".html") and "." not in Path(relative).name:
+            # 支持 Netlify 那套 "干净 URL"：/versions → versions.html
+            candidate = site_root / f"{relative}.html"
+            if candidate.exists():
+                relative = f"{relative}.html"
+        target = (site_root / relative).resolve()
+        if site_root not in target.parents and target != site_root:
+            self._reply(404, {"ok": False, "error": "路径越界"})
+            return
+        if not target.is_file():
+            self._reply(404, {"ok": False, "error": f"没有这个文件：{path}"
+                              f"（可用：/versions.html、/gallery.html、/）"})
+            return
+        body = target.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", MIME.get(target.suffix.lower(), "application/octet-stream"))
+        self.send_header("Content-Length", str(len(body)))
+        # 页面/数据必须实时，图片可以缓一缓
+        self.send_header("Cache-Control", "no-store" if target.suffix in (".html", ".json", ".js", ".css")
+                         else "public, max-age=300")
+        self._cors()
+        self.end_headers()
+        self.wfile.write(body)
 
     def do_POST(self) -> None:                           # noqa: N802
         if urlparse(self.path).path != "/submit":
@@ -372,10 +433,15 @@ def serve(port: int, out: Path, once: bool = False) -> int:
     _state["out"] = out
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)      # 只监听回环
     server.daemon_threads = True
-    print(f"评判收集器已启动：http://127.0.0.1:{port}/submit", flush=True)
-    print(f"  落盘目录：{out}（相对项目根）", flush=True)
-    print("  页面：用 `pwsh -NoProfile -File tools/dev.ps1 judge` 打开本地站点，"
-          "或在线上页面点「提交评判」", flush=True)
+    url = f"http://127.0.0.1:{port}"
+    print(f"评判服务已启动：{url}", flush=True)
+    if _state["serve_site"]:
+        print(f"  → 用浏览器打开：{url}/versions.html      （判完点「📤 提交评判」）", flush=True)
+        print(f"    静态画廊（无需 JS）：{url}/gallery.html", flush=True)
+    print(f"  → 结果落盘：{display(out)}", flush=True)
+    print(f"  → 提交接口：POST {url}/submit（同源，无需 CORS）", flush=True)
+    print("  提示：浏览器若走了失效的代理，可能连 127.0.0.1 都打不开 —— "
+          "先试 " + url + "/health 看能不能出 JSON", flush=True)
     print("  Ctrl+C 停止", flush=True)
     try:
         if once:
@@ -394,9 +460,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="接收版本评判台的人工评判结果（本机回环）")
     ap.add_argument("--port", type=int, default=int(os.environ.get("JUDGE_PORT", 8787)))
     ap.add_argument("--out", default=str(ROOT / "research" / "human_judge"))
+    ap.add_argument("--no-site", action="store_true", help="只当收集器，不提供站点（页面另起服务）")
     ap.add_argument("--once", action="store_true", help="收到一条就退出")
     args = ap.parse_args()
     _state["strict"] = os.environ.get("JUDGE_STRICT") == "1"
+    _state["serve_site"] = not args.no_site
     out = Path(args.out).resolve()
     if ROOT not in out.parents:
         print(f"[错误] 落盘目录必须在项目内：{out}", file=sys.stderr)
