@@ -41,6 +41,11 @@ from config import (
     PREVIEW_MAX, RATE_PER_MIN, RESULTS_DIR, RESULTS_QUOTA_BYTES, clamp_cfg,
     clamp_steps, clamp_strength, ensure_runtime_dirs, output_mime, output_suffix,
 )
+# 模型版本白名单走 config（唯一入口）
+from config import DEFAULT_ADAPTER as _DEFAULT_ADAPTER
+from config import adapter_catalogue as _adapter_catalogue
+from config import adapter_dir as config_resolve_adapter
+from config import adapter_slugs as _adapter_slugs
 from runtime import DurationStats, IdleGovernor, ResultStore, collect_gpu, memory_snapshot
 from app import _gen_one, _size, build_prompt, current_mode, get_i2i, unload_pipes, warmup
 
@@ -101,14 +106,19 @@ def _cache_save() -> None:
 
 
 def _cache_key(req: "GenerateReq", seed: int, steps: int, cfg: float, sampler: str,
-               fast: bool, init_hash: str) -> str:
-    """Stable fingerprint of everything that can change the pixels."""
+               fast: bool, init_hash: str, adapter_slug: str) -> str:
+    """Stable fingerprint of everything that can change the pixels.
+
+    `adapter_slug` 必须在里面：换版本却不换键，就会出现"用 V4 的缓存图冒充 V5b"，
+    而且看起来完全正常（本项目对"静默 no-op"有前科，这条是同类风险）。
+    """
     parts = [
         req.prompt.strip(), req.style, req.res, req.aspect, str(steps), f"{cfg:.3f}",
         str(seed), req.neg.strip(), sampler, "1" if fast else "0",
         str(int(req.highres)), str(int(req.enhance)), req.sr_model,
         f"{float(req.enhance_strength):.3f}", str(int(req.enhance_steps)),
         "1" if req.upscale else "0", init_hash, f"{float(req.strength):.3f}",
+        f"adapter:{adapter_slug}",
     ]
     return hashlib.sha1("\u0001".join(parts).encode("utf-8")).hexdigest()[:20]
 
@@ -183,6 +193,8 @@ class GenerateReq(BaseModel):
     enhance_steps: int = Field(default=0, ge=0, le=500)
     fast: bool = False
     sampler: str = Field(default="dpmpp2m_karras", max_length=32)
+    # 模型版本（白名单 slug，见 config.ADAPTER_CHOICES）；空 = 用服务端默认
+    adapter: str = Field(default="", max_length=40)
     # Server-side batch: one queue slot, one poll, N images (seeds seed..seed+N-1).
     batch: int = Field(default=1, ge=1, le=4)
     # img2img from the browser: compressed WebP/JPEG data URL or raw base64.
@@ -205,6 +217,26 @@ class GenerateReq(BaseModel):
             from enhance import sr_model_names
             raise ValueError(f"sr_model 只允许: {', '.join(sr_model_names())}")
         return value
+
+    @field_validator("adapter")
+    @classmethod
+    def _check_adapter(cls, value: str) -> str:
+        """`adapter` 决定**加载哪份权重**，同样不能相信客户端给的路径。
+
+        只接受 `config.ADAPTER_CHOICES` 里的 slug（v4/v5/v5b/v6q/merge-*），
+        解析在服务端完成；未知值一律 422，错误信息只回白名单，不回显传入内容。
+        """
+        if not value:
+            return ""
+        try:
+            config_resolve_adapter(value)
+        except ValueError:
+            raise ValueError(f"adapter 只允许: {', '.join(_adapter_slugs())}")
+        return value
+
+    def adapter_slug(self) -> str:
+        """生效的版本 slug（空字符串 → 服务端默认）。"""
+        return self.adapter or _DEFAULT_ADAPTER
 
 
 class WarmupReq(BaseModel):
@@ -418,6 +450,12 @@ def generate_sync(req: GenerateReq, job_id: str, init_img: Image.Image | None) -
     base_seed = req.seed if req.seed >= 0 else random.randint(0, 2**31 - 1)
     sampler = req.sampler.lower()
     fast = bool(req.fast or sampler in {"lcm", "tcd"})
+    # 模型版本：slug 已在请求校验里过白名单，这里解析成目录；解析失败退回服务端默认
+    adapter_slug = req.adapter_slug()
+    try:
+        adapter_path = str(config_resolve_adapter(adapter_slug))
+    except ValueError:
+        adapter_slug, adapter_path = _DEFAULT_ADAPTER, str(config_resolve_adapter(_DEFAULT_ADAPTER))
     steps = clamp_steps(req.steps, fast=fast)
     cfg = clamp_cfg(req.cfg, fast=fast)
     strength = clamp_strength(req.strength)
@@ -447,7 +485,8 @@ def generate_sync(req: GenerateReq, job_id: str, init_img: Image.Image | None) -
         _set_stage(job, "denoise", 0, steps)
         img = _gen_one(prompt, w, h, steps, cfg, seed, neg, init_img, strength, 1.0, None,
                        fast=fast, sampler=sampler, progress_cb=on_progress,
-                       preview_cb=on_preview, preview_every=PREVIEW_EVERY if index == 0 else 0)
+                       preview_cb=on_preview, preview_every=PREVIEW_EVERY if index == 0 else 0,
+                       adapter_dir=adapter_path)
 
         # A real (VAE-decoded) preview is written before any optional high-res
         # work, so the browser can show the finished composition immediately.
@@ -460,7 +499,7 @@ def generate_sync(req: GenerateReq, job_id: str, init_img: Image.Image | None) -
 
         if req.highres > 0 and req.highres > max(w, h):
             _set_stage(job, "highres")
-            img = get_i2i(fast, sampler)(
+            img = get_i2i(fast, sampler, adapter_path)(
                 prompt=prompt, negative_prompt=neg, image=img.resize((req.highres, req.highres)),
                 strength=0.45,
                 num_inference_steps=(max(4, steps) if fast else max(12, int(steps * 0.6))),
@@ -475,7 +514,7 @@ def generate_sync(req: GenerateReq, job_id: str, init_img: Image.Image | None) -
             import enhance as enhancer
             refine_steps = req.enhance_steps or (max(6, steps) if fast else max(16, int(steps * 0.5)))
             img = enhancer.enhance(
-                img, req.enhance, enhancer.get_sr(req.sr_model), get_i2i(fast, sampler),
+                img, req.enhance, enhancer.get_sr(req.sr_model), get_i2i(fast, sampler, adapter_path),
                 prompt, neg, strength=req.enhance_strength, steps=clamp_steps(refine_steps, fast),
                 cfg=cfg, tile=512, overlap=96, seed=seed, sharpen=True,
             )
@@ -594,6 +633,22 @@ app.add_middleware(CORSMiddleware, allow_origins=ALLOW_ORIGINS,
                    allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"])
 
 
+@app.get("/models")
+def models():
+    """可选的模型版本（前端下拉用）。与 /health 一样是**只读元数据**，不需要令牌。
+
+    只回白名单里的 slug 与诚实标签/备注 —— 不泄露服务器路径，也不接受任何输入。
+    """
+    rows = _adapter_catalogue()
+    return {
+        "ok": True,
+        "default": _DEFAULT_ADAPTER,
+        "loaded": current_mode().get("adapter"),
+        "count": len(rows),
+        "models": rows,
+    }
+
+
 @app.get("/health")
 def health():
     statuses = [j["status"] for j in _jobs.values()]
@@ -656,7 +711,7 @@ async def gen(req: GenerateReq, request: Request):
     # Only a fully specified request can be cached: a random seed is new every time.
     cache_key = None
     if CACHE_ENABLED and req.seed >= 0 and count == 1 and init_img is None:
-        cache_key = _cache_key(req, req.seed, steps, cfg, sampler, fast, "none")
+        cache_key = _cache_key(req, req.seed, steps, cfg, sampler, fast, "none", req.adapter_slug())
 
     # ---- cache fast path: identical request → no queue, no GPU work ----
     if cache_key:
@@ -681,6 +736,7 @@ async def gen(req: GenerateReq, request: Request):
 
     _jobs[job_id] = {
         "id": job_id, "status": "queued", "req": req.model_copy(update={"init_image": ""}),
+        "adapter": req.adapter_slug(),          # 前端要能显示"这张是用哪个版本出的"
         "created": time.time(), "updated": time.time(), "file": None, "files": [],
         "preview": None, "preview_ready": False, "preview_rev": 0, "preview_kind": None,
         "error": None, "stage": "queued", "steps_done": 0, "steps_total": steps,
@@ -714,6 +770,8 @@ def _job_meta(job: dict) -> dict:
         eta = 0
     return {
         "id": job["id"], "status": job["status"], "error": job.get("error"),
+        # 这张图是用哪个模型版本出的（前端展示 + 事后追溯用；老客户端忽略即可）
+        "adapter": job.get("adapter") or req.adapter_slug(),
         "prompt": req.prompt, "style": req.style, "res": req.res, "aspect": req.aspect,
         "seed": job.get("seed", req.seed), "steps": job.get("steps", req.steps),
         "cfg": job.get("cfg", req.cfg), "sampler": job.get("sampler", req.sampler),

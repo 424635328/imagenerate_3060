@@ -134,6 +134,12 @@
             </select>
           </div>
           <div class="field">
+            <label for="adapter" title="用哪份训练权重出图。四个版本在有效判据上无法区分（见「版本评判台」），所以这里换的是『口味』而不是『更好』。">模型版本</label>
+            <select id="adapter">
+              <option value="">（跟随服务端默认）</option>
+            </select>
+          </div>
+          <div class="field">
             <label for="sampler">采样器</label>
             <select id="sampler">
               <option value="dpmpp2m_karras">DPM++ 2M Karras</option>

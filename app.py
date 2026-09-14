@@ -135,7 +135,9 @@ def pipe_loaded() -> bool:
 def current_mode() -> dict:
     return {"loaded": _pipe is not None,
             "fast": bool(_pipe_mode[0]) if _pipe_mode else None,
-            "sampler": _pipe_mode[1] if _pipe_mode else None}
+            "sampler": _pipe_mode[1] if _pipe_mode else None,
+            # 当前驻留的是哪份权重（前端要显示"正在用哪个版本"）
+            "adapter": _pipe_mode[2] if _pipe_mode and len(_pipe_mode) > 2 else None}
 
 
 def warmup(fast: bool = False, sampler: str = "dpmpp2m_karras") -> dict:
@@ -197,8 +199,12 @@ def _set_scheduler(pipe, sampler: str, fast: bool):
     return name if name in schedulers else "dpmpp2m_karras"
 
 
-def _build_pipe(fast: bool, sampler: str = "dpmpp2m_karras"):
-    """构建质量或少步管线；fast 先合并风格 LoRA，再叠加 LCM/TCD LoRA。"""
+def _build_pipe(fast: bool, sampler: str = "dpmpp2m_karras", adapter_dir: str | None = None):
+    """构建质量或少步管线；fast 先合并风格 LoRA，再叠加 LCM/TCD LoRA。
+
+    `adapter_dir` 为 None 时用 config 里的默认权重（Gradio 入口就是这种用法）；
+    Web API 会按请求传具体版本目录（slug 已在服务端白名单里解析过，这里不再拼接）。
+    """
     from diffusers import StableDiffusionPipeline
     from peft import LoraConfig, get_peft_model, set_peft_model_state_dict
     from safetensors.torch import load_file
@@ -207,10 +213,11 @@ def _build_pipe(fast: bool, sampler: str = "dpmpp2m_karras"):
             from diffusers.utils import logging as _dl; _dl.disable_progress_bar()
             from transformers.utils import logging as _tl; _tl.disable_progress_bar()
         except Exception: pass
+    adapter_path = str(adapter_dir or ADAPTER)
     pipe = StableDiffusionPipeline.from_pretrained(
         BASE, dtype=torch.float16, safety_checker=None, requires_safety_checker=False)
-    adapter_cfg = LoraConfig.from_pretrained(ADAPTER)
-    adapter_file = os.path.join(ADAPTER, "adapter_model.safetensors")
+    adapter_cfg = LoraConfig.from_pretrained(adapter_path)
+    adapter_file = os.path.join(adapter_path, "adapter_model.safetensors")
     if fast or sampler.lower() in {"lcm", "tcd"}:
         pipe.unet = get_peft_model(pipe.unet, adapter_cfg)
         set_peft_model_state_dict(pipe.unet, load_file(adapter_file))
@@ -225,25 +232,34 @@ def _build_pipe(fast: bool, sampler: str = "dpmpp2m_karras"):
     else:
         pipe.unet = get_peft_model(pipe.unet, adapter_cfg)
         set_peft_model_state_dict(pipe.unet, load_file(adapter_file))
-        print("[mode] QUALITY sampler:", sampler)
+        print(f"[mode] QUALITY sampler: {sampler} adapter: {adapter_path}")
     actual_sampler = _set_scheduler(pipe, sampler, fast)
-    te = str(ADAPTER_DIR) + "_text_encoder.pt"
+    te = str(adapter_path) + "_text_encoder.pt"
     if os.path.exists(te):
         pipe.text_encoder.load_state_dict(torch.load(te, map_location="cpu"))
         print("loaded fine-tuned text_encoder:", te)
+    else:
+        # 没有微调过的 TE 就必须用基座的 —— 否则上一个版本的 TE 会串味到这一次
+        print("[mode] text_encoder: base (no fine-tuned file for this adapter)")
     _configure_memory(pipe)
     try:
         pipe.enable_model_cpu_offload()
     except Exception:
         pipe = pipe.to("cuda")
     pipe._landscape_sampler = actual_sampler
+    pipe._landscape_adapter = adapter_path
     return pipe
 
 
-def get_pipe(fast: bool = False, sampler: str = "dpmpp2m_karras"):
-    """只驻留一条 (模式, 采样器) 管线，切换时释放 hooks/引用/显存。"""
+def get_pipe(fast: bool = False, sampler: str = "dpmpp2m_karras", adapter_dir: str | None = None):
+    """只驻留一条 (模式, 采样器, 版本) 管线，切换时释放 hooks/引用/显存。
+
+    ⚠️ 版本必须进缓存键：否则切了版本还命中旧管线 —— 本项目被"静默 no-op"咬过两次
+    （`load_lora_weights` 不加载 peft 权重、PEFT 融合产出全零 lora_B），
+    表现都是"键与形状都对、出图却和基座逐位相同"。
+    """
     global _pipe, _i2i, _pipe_mode, _i2i_mode
-    key = (bool(fast), (sampler or "dpmpp2m_karras").lower())
+    key = (bool(fast), (sampler or "dpmpp2m_karras").lower(), str(adapter_dir or ADAPTER))
     if _pipe is None or _pipe_mode != key:
         if _pipe is not None:
             try: _pipe.remove_all_hooks()
@@ -255,9 +271,9 @@ def get_pipe(fast: bool = False, sampler: str = "dpmpp2m_karras"):
     return _pipe
 
 
-def get_i2i(fast: bool = False, sampler: str = "dpmpp2m_karras"):
+def get_i2i(fast: bool = False, sampler: str = "dpmpp2m_karras", adapter_dir: str | None = None):
     global _i2i, _i2i_mode
-    key = (bool(fast), (sampler or "dpmpp2m_karras").lower())
+    key = (bool(fast), (sampler or "dpmpp2m_karras").lower(), str(adapter_dir or ADAPTER))
     if _i2i is None or _i2i_mode != key:
         from diffusers import StableDiffusionImg2ImgPipeline
         p = get_pipe(*key)
@@ -349,11 +365,11 @@ def _progress_hook(total_steps, progress_cb, preview_every, preview_cb):
 
 def _gen_one(prompt, w, h, steps, cfg, seed, neg, refimg, strength, desat, mask,
              fast=False, sampler="dpmpp2m_karras", progress_cb=None,
-             preview_cb=None, preview_every=0):
+             preview_cb=None, preview_every=0, adapter_dir=None):
     fast = bool(fast)
     steps = clamp_steps(steps, fast=fast)
     cfg = clamp_cfg(cfg, fast=fast)
-    pipe = get_pipe(fast, sampler)
+    pipe = get_pipe(fast, sampler, adapter_dir)
     g = torch.Generator(device="cuda").manual_seed(seed)
     kw = dict(prompt=prompt, negative_prompt=neg, num_inference_steps=steps,
               guidance_scale=cfg, width=w, height=h, generator=g)

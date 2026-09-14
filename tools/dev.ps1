@@ -107,6 +107,10 @@ switch ($Task) {
     & $Python tools\test_human_verdict.py
     if ($LASTEXITCODE -eq 0) { Ok 'human verdict' } else { $fail++ }
 
+    Say '模型版本路由（白名单 / 贯穿 / 缓存隔离 / 前端接线）'
+    & $Python tools\test_adapter_routing.py
+    if ($LASTEXITCODE -eq 0) { Ok 'adapter routing' } else { $fail++ }
+
     Say '路径与敏感串'
     & $Python tools\check_paths.py
     if ($LASTEXITCODE -eq 0) { Ok 'paths' } else { $fail++ }

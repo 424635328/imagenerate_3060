@@ -20,7 +20,7 @@ import * as shell from './shell.js';
 import * as advisor from './advisor.js';
 import { compressForUpload, extractImage, formatBytes } from './upload.js';
 
-const SETTING_IDS = ['prompt', 'style', 'random', 'recipe', 'sampler', 'steps', 'cfg',
+const SETTING_IDS = ['prompt', 'style', 'random', 'recipe', 'adapter', 'sampler', 'steps', 'cfg',
   'seed', 'res', 'aspect', 'batch', 'clarity', 'sr', 'neg', 'strength'];
 
 const modifiers = new Set();
@@ -38,6 +38,9 @@ const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
 /** Handle from motion.initMotion() — lets new DOM re-arm the scroll reveal. */
 let revealWatch = null;
+
+/** 「模型版本」下拉是否已经用后端清单填充过（避免每次健康检查都重拉）。 */
+let modelsLoaded = false;
 
 function readSettings() {
   const settings = store.getState().settings;
@@ -136,6 +139,8 @@ function requestBody(seed) {
     enhance_strength: ui.el('clarity').value === '4k' ? 0 : 0.3,
     fast,
     sampler,
+    // 模型版本（后端白名单 slug）；空字符串 = 跟随服务端默认
+    adapter: ui.el('adapter') ? ui.el('adapter').value : '',
   };
   if (upload) {
     body.init_image = upload.dataUrl;
@@ -476,6 +481,14 @@ async function refreshHealth() {
   try {
     const data = await api.health();
     ui.renderHealth(data);
+    // 「模型版本」下拉：清单来自后端白名单（只在首次或后端重启后拉一次）
+    if (!modelsLoaded) {
+      try {
+        const catalogue = await api.models();
+        ui.renderModels(catalogue.models, store.getState().settings.adapter, catalogue.default);
+        modelsLoaded = true;
+      } catch { /* 拿不到清单就只留"跟随服务端默认"一项 */ }
+    }
     ui.el('uploadHint').textContent = data.upload
       ? `参考图会在浏览器压缩到 ≤ ${data.max_upload_mb} MB 后上传`
       : '后端已关闭上传功能';

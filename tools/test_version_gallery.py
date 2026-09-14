@@ -250,9 +250,12 @@ def main() -> int:
           'href="gallery.html"' in PAGE.read_text(encoding="utf-8"))
     check("载入失败时给的是可诊断面板（不是转圈）",
           "renderLoadFailure" in PAGE_JS.read_text(encoding="utf-8"))
-    check("sw.js 缓存版本已升到 v7（离线回退按路径修好了）",
-          "lsart-shell-v7" in (SITE / "sw.js").read_text(encoding="utf-8"))
-    check("sw.js 导航回退先找本条路径", "${path}.html" in (SITE / "sw.js").read_text(encoding="utf-8"))
+    sw_text = (SITE / "sw.js").read_text(encoding="utf-8")
+    version_match = re.search(r"lsart-shell-v(\d+)", sw_text)
+    check("sw.js 缓存版本 >= v7（离线回退按路径修好之后）",
+          bool(version_match) and int(version_match.group(1)) >= 7,
+          version_match.group(0) if version_match else "找不到版本号")
+    check("sw.js 导航回退先找本条路径", "${path}.html" in sw_text)
 
     print(f"\n结果：{PASSED} 项通过，{len(FAILED)} 项失败")
     for name in FAILED:

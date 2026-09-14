@@ -142,6 +142,9 @@ exports.handler = async (event) => {
       path = `/jobs/${id}`;
       method = "DELETE";
       body = null;
+    } else if (op === "models") {
+      // 可选模型版本清单（只读元数据，无 GPU 成本）：前端下拉用
+      path = "/models";
     } else if (op === "jobs") {
       path = `/jobs?limit=${Math.min(100, Math.max(1, Number(q.limit || 20)))}`;
     }

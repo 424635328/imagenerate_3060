@@ -19,6 +19,14 @@ export async function health() {
   return data;
 }
 
+/** 可选模型版本（后端白名单的只读清单）——用于填充「模型版本」下拉。 */
+export async function models() {
+  const r = await fetch(`${API}?op=models`, { cache: 'no-store' });
+  const data = await readJson(r);
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
+}
+
 export async function warmup(body) {
   const r = await fetch(`${API}?op=warmup`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),

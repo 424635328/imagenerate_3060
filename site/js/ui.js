@@ -24,6 +24,33 @@ export function setStatus(text, kind = '') {
   node.dataset.kind = kind;
 }
 
+/**
+ * 填充「模型版本」下拉（数据来自后端 /models 白名单）。
+ *
+ * 标签与提示直接取后端的 label/slogan/note（也就是项目自己的评测数字），不做宣传化改写：
+ * 四个版本在有效判据上**无法区分**，这一点必须让人在选之前就看到。
+ */
+export function renderModels(list, current, serverDefault) {
+  const select = el('adapter');
+  if (!select || !Array.isArray(list) || !list.length) return;
+  const previous = current ?? select.value ?? '';
+  const options = list.map((item) => {
+    const badge = item.text_encoder ? ' · TE 微调' : '';
+    return `<option value="${item.id}" title="${item.slogan}${badge}：${item.note}">`
+      + `${item.label}${item.default ? '（服务端默认）' : ''}</option>`;
+  }).join('');
+  const fallback = list.find((m) => m.id === serverDefault);
+  select.innerHTML = `<option value="">（跟随服务端默认${fallback ? `：${fallback.label}` : ''}）</option>`
+    + options;
+  // 用户没选过就落在服务端默认版本上（"最新用哪个"由后端 DEFAULT_ADAPTER 决定）
+  const keep = previous || serverDefault || '';
+  select.value = [...select.options].some((node) => node.value === keep) ? keep : '';
+  const picked = list.find((m) => m.id === select.value) || fallback;
+  select.title = picked ? `${picked.label} · ${picked.slogan}\n${picked.note}` : '';
+  const label = select.closest('.field')?.querySelector('label');
+  if (label && picked) label.title = `${picked.label} · ${picked.slogan}\n${picked.note}`;
+}
+
 export function log(label, payload) {
   const body = typeof payload === 'string' ? payload : JSON.stringify(payload);
   logLines.push(`[${new Date().toLocaleTimeString()}] ${label} :: ${body}`);
