@@ -30,8 +30,9 @@
     <nav class="top-actions" aria-label="页面操作">
       <a class="btn ghost" href="/">← 工作台</a>
       <a class="btn ghost" href="gallery.html" title="零 JS、自包含的静态画廊：任何浏览器都能开">🖼 静态画廊</a>
-      <button type="button" class="btn ghost" id="vbBlind">🎲 开始盲测</button>
-      <button type="button" class="btn ghost" id="vbExport">⤓ 导出我的评判</button>
+      <button type="button" class="btn ghost" id="vbBlind">👁 揭晓标签</button>
+      <button type="button" class="btn ghost" id="vbSubmit" title="把评判结果送到 research/human_judge/">📤 提交评判</button>
+      <button type="button" class="btn ghost" id="vbExport">⤓ 导出</button>
       <button type="button" class="btn ghost" id="vbTheme">☀️ 亮色</button>
     </nav>
   </header>
@@ -131,6 +132,10 @@
         <span class="muted" id="vbTallyCount">0 题</span>
       </div>
       <div class="vb-tablewrap"><table class="vb-table" id="vbTally"></table></div>
+      <div class="vb-submitbar">
+        <button type="button" class="btn big" id="vbSubmitCard">📤 提交评判给作者</button>
+        <p class="vb-submit-note" id="vbSubmitNote">先判几题，提交按钮才会亮。</p>
+      </div>
       <p class="muted vb-foot">
         4 选 1 盲测里<b>随机期望是 25%</b>（两两擦除对照里是 50%）：Wilson 95% 区间包含期望值 ⇒
         按本项目判据记为「无法区分」。区间宽度随题量收窄 —— 想判出 60/40 级别的差异，至少需要几十题。

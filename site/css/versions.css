@@ -237,6 +237,35 @@
 /* ------------------------------------------------------------ 我的评判 */
 
 .vb-pairs { margin-top: 12px; display: grid; gap: 8px; }
+
+/* ------------------------------------------------------------ 提交评判 */
+/* "点一下就送到作者那儿"：首选本机收集器，其次写进所选目录，最后兜底下载。
+   三种结果都要有明确文字，不能让用户猜到底送没送到。 */
+.vb-submitbar {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.vb-submitbar .btn.big { min-height: 40px; }
+.vb-submit-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.vb-submit-note code {
+  background: #00000059;
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+.vb-submit-note.done { color: var(--ok); }
+.vb-submit-note.sending { color: var(--accent-2); }
+.vb-submit-note.manual { color: var(--warn); }
+.vb-submit-note.done code, .vb-submit-note.manual code { color: var(--text); }
 .vb-pair-row {
   display: flex;
   flex-wrap: wrap;

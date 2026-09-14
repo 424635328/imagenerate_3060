@@ -132,19 +132,29 @@ check('并排模式: 图片指向打包好的 WebP',
   $$('.vb-cell img').every((img) => /\/img\/versions\/\w+\/p\d{2}_s\d{3}\.webp$/.test(img.getAttribute('src'))));
 check('并排模式: 每格有版本名与指标', $$('.vb-cell .vb-name').length === 4
   && $$('.vb-cell .vb-metric').length === 4);
-check('未盲测时标签可见', $$('.vb-cell.masked').length === 0);
 
 /* -------------------------------------------------------------- 盲测 */
-$('#vbBlind').click();
-await tick();
-check('盲测: 标签被遮罩', $$('.vb-cell.masked').length === 4);
-check('盲测: 槽位 A–D 就位', $$('.vb-cell .vb-slot').map((el) => el.textContent[0]).join('') === 'ABCD');
+// 默认即盲测（"不盲测的评判没有证据价值"）：先验默认态，再点一下揭晓做对照检查。
+check('默认: 盲测开启，标签被遮罩', $$('.vb-cell.masked').length === 4);
+check('默认: 按钮文案是「揭晓标签」', /揭晓标签/.test($('#vbBlind').textContent),
+  $('#vbBlind').textContent);
 const blindSlots = $$('.vb-cell').map((el) => el.dataset.version);
-check('盲测: 顺序与未盲测不同（确实打乱了）',
+check('盲测: 槽位 A–D 就位', $$('.vb-cell .vb-slot').map((el) => el.textContent[0]).join('') === 'ABCD');
+check('盲测: 顺序与自然序不同（确实打乱了）',
   blindSlots.join(',') !== versions.map((v) => v.id).join(','), blindSlots.join(','));
 check('盲测: 同一题顺序确定（可复现）',
   JSON.stringify(mod.blindOrder(4, state.prompt, DATA.protocol.seeds[0]))
   === JSON.stringify(mod.blindOrder(4, state.prompt, DATA.protocol.seeds[0])));
+
+$('#vbBlind').click();                       // 揭晓
+await tick();
+check('揭晓: 遮罩移除、标签可见、按钮变「开始盲测」', $$('.vb-cell.masked').length === 0
+  && /开始盲测/.test($('#vbBlind').textContent));
+check('揭晓: 顺序回到自然序（V4/V5/V5b/V6q）',
+  $$('.vb-cell').map((el) => el.dataset.version).join(',') === versions.map((v) => v.id).join(','));
+$('#vbBlind').click();                       // 再回到盲测
+await tick();
+check('再开盲测: 遮罩恢复', $$('.vb-cell.masked').length === 4);
 
 $('.vb-cell [data-pick]').click();
 await tick(320);
@@ -159,10 +169,8 @@ check('进度: 已评判计数与进度条同步', /已评判 1 \/ 48/.test($('#
 $('[data-tie]').click();
 await tick();
 check('平局: 记录 tie=true 且不计入已决题', Object.values(state.picks).some((row) => row.tie === true));
-$('#vbBlind').click();
-await tick();
-check('揭晓: 遮罩移除、按钮文案回到「开始盲测」', $$('.vb-cell.masked').length === 0
-  && /开始盲测/.test($('#vbBlind').textContent));
+check('偏好被记住（下次打开仍是盲测）',
+  JSON.parse(localStorage.getItem('lsart_judge_prefs_v1') || '{}').blind === true);
 
 /* ---------------------------------------------------------- 擦除对照 */
 $('#vbMode').value = 'wipe';
@@ -215,8 +223,67 @@ check('导出: 有记录时可导出（点击不抛错）', (() => {
   try { $('#vbExport').click(); return true; } catch { return false; }
 })());
 
+/* ---------------------------------------------------------------- 提交 */
+// 与 tools/test_judge_collector.py 联调：--emit-payload <path> 把「提交评判」会发的
+// 那份 payload（逐字段相同）写到磁盘，交给 Python 侧校验「JS 造的结构 Python 收得下」。
+const emitIndex = process.argv.indexOf('--emit-payload');
+const payloadArg = emitIndex > -1 ? process.argv[emitIndex + 1] : '';
+
+let submitted = null;
+const realFetch = g.fetch;
+g.fetch = async (url, options = {}) => {
+  if (String(url).includes('/submit')) {
+    submitted = { url: String(url), body: JSON.parse(options.body || '{}'), headers: options.headers };
+    return new Response(JSON.stringify({ ok: true, file: 'research/human_judge/verdicts_x.json',
+      records: submitted.body.records.length, summary: { headline: '已决 1 题：没有任何版本显著高于随机期望' } }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+  return realFetch(url, options);
+};
+window.fetch = g.fetch;
+$('#vbSubmit').click();
+await tick(60);
+check('提交: 点一下就把记录 POST 到本机收集器',
+  !!submitted && submitted.url.startsWith('http://127.0.0.1:8787/submit'),
+  submitted ? submitted.url : '没有发出请求');
+check('提交: payload 含 schema/来源/版本/协议/records/summary',
+  submitted && submitted.body.schema === 1 && submitted.body.records.length > 0
+  && submitted.body.versions?.length === 4 && submitted.body.protocol?.prompt_count === 24
+  && submitted.body.summary?.modes, JSON.stringify(Object.keys(submitted?.body || {})));
+check('提交: 每条记录都带 prompt_index/seed/winner/tie（可复算）',
+  submitted.body.records.every((r) => Number.isInteger(r.prompt_index) && Number.isInteger(r.seed)
+    && 'winner' in r && typeof r.tie === 'boolean'));
+check('提交: Content-Type 是 application/json',
+  String(submitted.headers?.['Content-Type']).includes('application/json'));
+check('提交: 成功后界面给出文件名与结论',
+  /已提交/.test($('#vbSubmitNote').textContent) && /verdicts_x\.json/.test($('#vbSubmitNote').textContent),
+  $('#vbSubmitNote').textContent.slice(0, 80));
+
+if (payloadArg) {
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(payloadArg, JSON.stringify(window.vbBuildPayload(), null, 1), 'utf8');
+  check('提交: 能导出与提交逐字段相同的 payload（供跨语言联调）', true);
+}
+
+// 收集器没启动时必须**说清楚怎么办**，并且退回下载（不能静默失败）
+g.fetch = async (url, options = {}) => {
+  if (String(url).includes('/submit')) throw new TypeError('Failed to fetch');
+  return realFetch(url, options);
+};
+window.fetch = g.fetch;
+$('#vbSubmit').click();
+await tick(120);
+check('提交: 收集器不在时给出「怎么才能一键送达」的明确指引',
+  /没能自动送达/.test($('#vbSubmitNote').textContent)
+  && /judge_collector/.test($('#vbSubmitNote').textContent),
+  $('#vbSubmitNote').textContent.slice(0, 120));
+
 /* ---------------------------------------------------------------- 收尾 */
-check('运行期无错误', errors.length === 0, errors.slice(0, 3).join(' | '));
+// jsdom 不实现"点击 <a download>"造成的导航，这是环境限制而非产品缺陷：
+// 导出兜底会创建 <a download href="data:..."> 并 click()，jsdom 只记一条
+// "Not implemented: navigation to another Document"。把它与非预期错误分开。
+const fatal = errors.filter((message) => !/Not implemented: navigation/.test(message));
+check('运行期无错误（忽略 jsdom 未实现的下载导航）', fatal.length === 0, fatal.slice(0, 3).join(' | '));
 
 const failed = results.filter((row) => !row.ok);
 results.forEach((row) => console.log(`${row.ok ? 'PASS' : 'FAIL'}  ${row.name}${row.ok || !row.detail ? '' : `  → ${row.detail}`}`));

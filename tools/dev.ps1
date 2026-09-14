@@ -14,7 +14,7 @@
 [CmdletBinding()]
 param(
   [Parameter(Position = 0)]
-  [ValidateSet('check', 'eol', 'bench', 'security', 'verify', 'start', 'tunnel', 'deploy', 'help')]
+  [ValidateSet('check', 'eol', 'bench', 'security', 'verify', 'start', 'tunnel', 'deploy', 'judge', 'help')]
   [string]$Task = 'help',
 
   [string]$Python = $env:PYTHON,
@@ -48,6 +48,7 @@ switch ($Task) {
     Write-Host '  .\tools\dev.ps1 check     全量检查（编译/JS/前端/路径/脱敏/行尾）'
     Write-Host '  .\tools\dev.ps1 eol       行尾归一 + 门禁'
     Write-Host '  .\tools\dev.ps1 security  上传安全回归'
+    Write-Host '  .\tools\dev.ps1 judge     人工评判：起收集器 + 本地站点，结果落到 research/human_judge/'
     Write-Host '  .\tools\dev.ps1 bench     批量/缓存基准（需后端在跑）'
     Write-Host '  .\tools\dev.ps1 verify    线上端到端（需隧道在线）'
     Write-Host '  .\tools\dev.ps1 start     启动后端'
@@ -94,6 +95,14 @@ switch ($Task) {
     node tools\smoke_versions.mjs
     if ($LASTEXITCODE -eq 0) { Ok 'versions page' } else { $fail++ }
 
+    Say '人工评判收集器（回环 / 跨站防护 / 独立重算 / 非 UTF-8 控制台回归）'
+    & $Python tools\test_judge_collector.py
+    if ($LASTEXITCODE -eq 0) { Ok 'judge collector' } else { $fail++ }
+
+    Say '提交链路真浏览器 E2E（点一下 → 文件落到 research/human_judge/）'
+    node tools\test_judge_submit_e2e.mjs
+    if ($LASTEXITCODE -eq 0) { Ok 'submit e2e' } else { $fail++ }
+
     Say '路径与敏感串'
     & $Python tools\check_paths.py
     if ($LASTEXITCODE -eq 0) { Ok 'paths' } else { $fail++ }
@@ -124,6 +133,27 @@ switch ($Task) {
     Say '上传安全回归（magic bytes / EXIF+GPS / 像素炸弹）'
     & $Python tools\test_upload_security.py
     exit $LASTEXITCODE
+  }
+
+  'judge' {
+    Need-Python
+    Say '起本机评判收集器（127.0.0.1:8787 → research/human_judge/）'
+    $collector = Start-Process -FilePath $Python -ArgumentList 'tools\judge_collector.py' -PassThru -WindowStyle Hidden
+    Start-Sleep -Milliseconds 800
+    $port = 8799
+    Say "起本地静态站点：http://127.0.0.1:$port/versions.html"
+    Write-Host ''
+    Write-Host '  浏览器打开上面这个地址 → 点「开始盲测」→ 每题选一张 →' -ForegroundColor White
+    Write-Host '  最后点「提交评判」，结果会直接落到 research/human_judge/' -ForegroundColor White
+    Write-Host ''
+    Write-Host '  Ctrl+C 结束（同时会关闭收集器）' -ForegroundColor DarkGray
+    try {
+      & $Python -m http.server $port --bind 127.0.0.1 --directory site
+    } finally {
+      if ($collector -and -not $collector.HasExited) { Stop-Process -Id $collector.Id -Force }
+      Say '已停止收集器'
+    }
+    exit 0
   }
 
   'bench' {

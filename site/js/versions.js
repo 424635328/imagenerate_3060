@@ -16,18 +16,36 @@ import * as store from './store.js';
 
 const $ = (selector) => document.querySelector(selector);
 const PICK_KEY = 'lsart_verdicts_v1';
+const PREF_KEY = 'lsart_judge_prefs_v1';
 const SLOTS = ['A', 'B', 'C', 'D'];
+/* 本机收集器（tools/judge_collector.py）。用 ?judge=http://127.0.0.1:8899 可换端口。 */
+const COLLECTOR = new URLSearchParams(location.search).get('judge') || 'http://127.0.0.1:8787';
 
 const state = {
   data: null,
   prompt: 0,
   seedIndex: 0,
   mode: 'grid',
-  blind: false,
+  blind: true,             // 默认就盲测：不盲测的"评判"没有证据价值
   wipeA: 'V4',
   wipeB: 'V5b',
   picks: {},              // key → {prompt, seed, mode, order, winner, tie}
+  submit: { state: 'idle', message: '' },
 };
+
+/* ------------------------------------------------------------------ 偏好 */
+
+function loadPrefs() {
+  try {
+    const prefs = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+    if (typeof prefs.blind === 'boolean') state.blind = prefs.blind;
+    if (prefs.mode === 'wipe' || prefs.mode === 'grid') state.mode = prefs.mode;
+  } catch { /* 用默认值 */ }
+}
+
+function savePrefs() {
+  localStorage.setItem(PREF_KEY, JSON.stringify({ blind: state.blind, mode: state.mode }));
+}
 
 /* ------------------------------------------------------------------ 统计 */
 
@@ -374,6 +392,15 @@ function step(delta) {
 function renderTally() {
   const records = Object.values(state.picks);
   $('#vbTallyCount').textContent = `${records.length} 题`;
+  const note = $('#vbSubmitNote');
+  if (note && state.submit.state === 'idle') {
+    note.className = 'vb-submit-note';
+    note.innerHTML = records.length
+      ? `已记录 ${records.length} 题 · 点「提交评判」把结果送到 <code>research/human_judge/</code>（本机收集器）`
+      : '先判几题，提交按钮才会亮。';
+  }
+  const submit = $('#vbSubmit');
+  if (submit) submit.disabled = records.length === 0 || state.submit.state === 'sending';
   const groups = [
     { mode: 'blind4', label: '4 选 1 盲测', chance: 0.25, modes: ['blind4'] },
     { mode: 'open4', label: '4 选 1（未盲测）', chance: 0.25, modes: ['open4'] },
@@ -449,6 +476,135 @@ function exportRecords() {
       tie: !!row.tie,
       at: row.at,
     }));
+}
+
+/** 本机统计（与服务端 tools/judge_collector.py 各自独立计算，提交后可互相核对）。 */
+function localSummary() {
+  const records = Object.values(state.picks);
+  const modes = {};
+  ['blind4', 'open4', 'pair'].forEach((mode) => {
+    const rows = records.filter((row) => row.mode === mode);
+    const decided = rows.filter((row) => !row.tie).length;
+    if (!decided) return;
+    const chance = mode === 'pair' ? 0.5 : 0.25;
+    const versions = V().map((version) => {
+      const wins = rows.filter((row) => !row.tie && row.winner === version.id).length;
+      const { low, high, indistinguishable } = verdictFor(wins, decided, chance);
+      return { version: version.id, wins, decided, rate: wins / decided,
+               ci: [low, high], chance, indistinguishable };
+    }).filter((row) => row.wins > 0);
+    modes[mode] = { decided, ties: rows.length - decided, versions };
+  });
+  return {
+    schema: 1,
+    decided_total: Object.values(modes).reduce((sum, mode) => sum + mode.decided, 0),
+    modes,
+    headline: tallyHeadline(modes),
+  };
+}
+
+/** 一句话结论：只有显著高于随机才敢说"更好" —— 与收集器里的措辞保持一致口径。 */
+function tallyHeadline(modes) {
+  const rows = Object.values(modes).flatMap((mode) => mode.versions);
+  const decided = Object.values(modes).reduce((sum, mode) => sum + mode.decided, 0);
+  if (!decided) return '还没有已决题（全为平局或未评判）。';
+  const best = rows.filter((row) => !row.indistinguishable)
+    .sort((a, b) => b.rate - a.rate)[0];
+  if (!best) {
+    return `已决 ${decided} 题：没有任何版本显著高于随机期望 ⇒ 按本项目判据记为「无法区分」。`;
+  }
+  return `已决 ${decided} 题：${best.version} 被选中 ${best.wins}/${best.decided}`
+    + `（区间 ${(best.ci[0] * 100).toFixed(1)}–${(best.ci[1] * 100).toFixed(1)}%，`
+    + `高于随机期望 ${(best.chance * 100).toFixed(0)}%）。`;
+}
+
+function buildPayload() {
+  return {
+    schema: 1,
+    source: 'site/versions.html（人工盲测）',
+    versions: V().map((version) => version.id),
+    protocol: state.data.protocol,
+    client: {
+      url: location.origin + location.pathname,
+      submitted_at: new Date().toISOString(),
+      blind_default: true,
+      // 刻意不发 User-Agent：对分析没用，而且属于可识别信息（AGENTS.md 脱敏要求）
+    },
+    summary: localSummary(),
+    records: exportRecords(),
+  };
+}
+
+/* ------------------------------------------------------------------ 提交 */
+
+function setSubmit(status, message = '') {
+  state.submit = { state: status, message };
+  const button = $('#vbSubmit');
+  const note = $('#vbSubmitNote');
+  if (button) {
+    button.disabled = status === 'sending' || Object.keys(state.picks).length === 0;
+    button.textContent = status === 'sending' ? '⏳ 正在提交…' : '📤 提交评判';
+  }
+  if (note) {
+    note.className = `vb-submit-note ${status}`;
+    note.innerHTML = message;
+  }
+}
+
+/** 一次性授权：把结果直接写进你选的仓库目录（之后每次提交都不再弹窗）。 */
+let dirHandle = null;
+async function saveToChosenFolder(payload) {
+  if (typeof window.showSaveFilePicker !== 'function') throw new Error('浏览器不支持文件系统访问');
+  const name = `verdicts_${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15)}.json`;
+  const handle = await window.showSaveFilePicker({
+    suggestedName: name,
+    types: [{ description: '评判结果 JSON', accept: { 'application/json': ['.json'] } }],
+  });
+  const writable = await handle.createWritable();
+  await writable.write(JSON.stringify(payload, null, 1));
+  await writable.close();
+  return handle.name;
+}
+
+async function submit() {
+  const payload = buildPayload();
+  if (!payload.records.length) return;
+  setSubmit('sending', '正在提交到本机收集器…');
+  // 1) 首选：本机收集器（tools/judge_collector.py）—— 落盘到 research/human_judge/
+  try {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 6000);
+    const response = await fetch(`${COLLECTOR}/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    window.clearTimeout(timer);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.ok) throw new Error(body.error || `HTTP ${response.status}`);
+    setSubmit('done', `✅ 已提交：<code>${body.file}</code>（${body.records} 条）<br>`
+      + `<span class="muted">${escapeHtml(body.summary?.headline || '')}</span>`);
+    return;
+  } catch (error) {
+    // 2) 次选：直接写进你选的目录（File System Access）
+    try {
+      const file = await saveToChosenFolder(payload);
+      setSubmit('done', `✅ 已写入 <code>${escapeHtml(file)}</code>（${payload.records.length} 条）<br>`
+        + '<span class="muted">把它放进仓库的 research/human_judge/ 即可</span>');
+      return;
+    } catch (fallbackError) {
+      // 3) 兜底：下载 + 说清楚怎么办
+      download('my-verdicts.json', JSON.stringify(payload, null, 1));
+      const why = error && error.name === 'AbortError' ? '收集器无响应' : (error?.message || error);
+      setSubmit('manual', `⚠ 没能自动送达（${escapeHtml(String(why))}）—— 已下载 `
+        + `<code>my-verdicts.json</code>。<br>`
+        + `要做成"一键送达"：先在本机跑 <code>python tools/judge_collector.py</code>`
+        + `（或 <code>pwsh -NoProfile -File tools/dev.ps1 judge</code>）再用本地页面提交；`
+        + `也可以把这个文件放进 <code>research/human_judge/</code> 告诉我一声。`);
+      void fallbackError;
+    }
+  }
 }
 
 function download(name, text, type = 'application/json') {
@@ -534,12 +690,13 @@ async function boot() {
 
   $('#vbBlind').onclick = () => {
     state.blind = !state.blind;
+    savePrefs();
     renderAll();
   };
   $('#vbPrev').onclick = () => step(-1);
   $('#vbNext').onclick = () => step(1);
   $('#vbSeed').onchange = (event) => { state.seedIndex = Number(event.target.value); renderAll(); };
-  $('#vbMode').onchange = (event) => { state.mode = event.target.value; renderAll(); };
+  $('#vbMode').onchange = (event) => { state.mode = event.target.value; savePrefs(); renderAll(); };
   $('#vbWipeA').onchange = (event) => { state.wipeA = event.target.value; renderWipe(); };
   $('#vbWipeB').onchange = (event) => { state.wipeB = event.target.value; renderWipe(); };
   $('#vbUnjudged').onclick = nextUnjudged;
@@ -550,6 +707,9 @@ async function boot() {
     renderAll();
   };
   $('#vbExport').onclick = onExport;
+  $('#vbSubmit').onclick = submit;
+  const submitCard = $('#vbSubmitCard');
+  if (submitCard) submitCard.onclick = submit;
   $('#vbTheme').onclick = () => {
     const next = store.setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
     motion.withThemeWipe(() => { document.documentElement.dataset.theme = next; }, null);
@@ -608,12 +768,14 @@ async function boot() {
   });
 
   $('#vbZoom').onclick = closeZoom;
+  loadPrefs();
   loadPicks();
   renderIntro();
   renderMetrics();
   renderSr();
   renderAll();
   window.vbState = state;                       // 供无头冒烟测试断言（jsdom 专用）
+  window.vbBuildPayload = buildPayload;         // 冒烟测试用：拿到与「提交评判」逐字段相同的 payload
 }
 
 function openZoom(image) {

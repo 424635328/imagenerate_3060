@@ -246,7 +246,7 @@ python server.py
 
 - **`site/versions.html` 是判据的一部分，不是装饰**：四个版本在同一 (prompt, seed) 下初始噪声逐位相同，
   所以可以把它们叠起来逐像素看。改动语料或页面必须同时跑
-  `python tools/test_version_gallery.py`（63 项）与 `node tools/smoke_versions.mjs`（46 项）。
+  `python tools/test_version_gallery.py`（78 项）与 `node tools/smoke_versions.mjs`（55 项）。
 - **打包即证据**：页面数据全部由 `tools/make_version_gallery.py` 从 `research/` 生成
   （含对齐度实测 r 与裁判位置偏置），**禁止手改 `site/data/versions.json`**：
   数字必须能回溯到 `fid_metrics.csv` / `eval_val.csv` / `judge_verdicts.csv`。
@@ -254,6 +254,17 @@ python server.py
   这条标记是门禁的一部分，删掉它必须先解释为什么位置偏置不成立。
 - **不要把 val 当画质**：表格里的 `val_mse` 必须带"不是画质指标"的说明；
   V6q 的 val 与其它候选不可比，记 `null`，**不许编一个数**。
+- **人工评判的送达链路**：`tools/judge_collector.py` 监听 **127.0.0.1**、**无令牌**、
+  Origin 白名单（跨站 403）、body ≤ 64 KB、字段逐项校验、**只写 `research/human_judge/`**、
+  原子落盘、**服务端独立重算**（不信任页面 summary）。
+  改动它必须同时跑 `python tools/test_judge_collector.py`（45 项）与
+  `node tools/test_judge_submit_e2e.mjs`（14 项，真浏览器点一下 → 文件落地）。
+- **日志绝不能把请求搞挂**：收集器启动即把 stdout/stderr 钉成 UTF-8——中文 Windows 上
+  默认 cp936，日志里的 `⇒` 会让 `print` 抛异常，而"文件已落盘、响应没发出"会被浏览器当失败重试
+  （本项目真实事故，2026-09-15）。任何新增的日志/回执文本都要假定控制台编码不可靠。
+- **E2E 测试必须自证隔离**：headless 浏览器用**随机调试端口** + 独立 `--user-data-dir`，
+  结束时按 profile 路径杀**整棵进程树**（只 kill 启动器 pid 会留幽灵实例，下一轮会复用旧浏览器、
+  读到旧 localStorage 而得出错误结论）。测试里要有"浏览器是全新的"与"没留下后台进程"两条断言。
 
 ## 长任务与工具调用超时（重要）
 
@@ -291,8 +302,10 @@ python tools/test_sdxl_base.py     # 基座解析到本地快照（13 项，防"
 python tools/test_pipeline_logic.py  # 探针解析 / 分辨率决策 / 故障归类（16 项）
 python tools/test_sr_and_judge.py  # 自训超分接入 + sr_model 输入校验 + 盲测裁判统计（32 项）
 python tools/test_spring_easing.py # 前端动效 spring 曲线 vs 解析解（31 项，改 site/css/motion.css 必跑）
-python tools/test_version_gallery.py # 版本评判台语料/数字/判据无效标记（63 项，改 data 或 versions.* 必跑）
-node tools/smoke_versions.mjs      # 版本评判台前端（46 项，jsdom；用磁盘上真实的 versions.json 启动）
+python tools/test_version_gallery.py # 版本评判台语料/数字/判据无效标记（78 项，改 data 或 versions.* 必跑）
+node tools/smoke_versions.mjs      # 版本评判台前端（55 项，jsdom；用磁盘上真实的 versions.json 启动）
+python tools/test_judge_collector.py # 人工评判收集器（45 项：回环/跨站 403/独立重算/非 UTF-8 回归）
+node tools/test_judge_submit_e2e.mjs # 提交链路真浏览器 E2E（14 项：点一下 → 文件落到 research/human_judge/）
 python tools/deploy_check.py --adapter models/v5b_lora/adapter_best --expect-text-encoder
        # 部署形态静态检查：线上到底会加载哪份 UNet LoRA 与文本编码器
 python tools/verify_merge.py --sources models/v4_640/adapter_best models/v5_lora/adapter_best `

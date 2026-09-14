@@ -853,3 +853,46 @@ x(t) = 1 - (1 + ω₀t)·e^(-ω₀t)                                    ζ = 1
 
 载入失败时页面也不再"转圈"：给出具体错误、重试按钮、硬刷新提示与静态画廊入口，
 并明确写出"本站不需要后端与隧道"。
+
+### 20.6 人工评判怎么回到作者手里（默认盲测 + 一键提交）
+
+**默认就是盲测**：打开页面标签即刻被替换成 A/B/C/D 并按题号确定性打乱，
+按钮写的是「👁 揭晓标签」（偏好存在 localStorage，下次打开保持）。
+
+判完点 **「📤 提交评判」**，三种送达方式按顺序尝试，任何一种成功都会在页面上写明结果：
+
+| 顺序 | 方式 | 条件 | 结果 |
+|---|---|---|---|
+| 1 | POST 到本机收集器 | `python tools/judge_collector.py`（或 `pwsh -NoProfile -File tools/dev.ps1 judge`）在跑 | 直接写入 `research/human_judge/verdicts_<时间>.json`，页面显示文件名 + 服务端结论 |
+| 2 | File System Access API | Chrome/Edge，你在弹窗里选一次目录 | 直接把 JSON 写进你选的目录 |
+| 3 | 下载 `my-verdicts.json` | 前两条都不可用 | 页面明确写出"放进 `research/human_judge/`"，不会静默失败 |
+
+**一条命令跑通全流程**（本地站点 + 收集器，不需要隧道、不需要 GPU）：
+
+```powershell
+pwsh -NoProfile -File tools/dev.ps1 judge     # 起收集器 + http://127.0.0.1:8799/versions.html
+```
+
+收集器的设计（`tools/judge_collector.py`）：**只监听 127.0.0.1**；无令牌（它不碰 GPU、不碰模型、
+不执行输入，只把 JSON 落盘）；**跨站 Origin 一律 403**（本站与 localhost 白名单，
+deploy-preview 子域按后缀放行）；body ≤ 64 KB、记录 ≤ 200 条、字段逐项校验；
+**服务端独立重算**胜场与 Wilson 区间（不信任页面传来的 summary，不一致就写 `warning`）；
+原子落盘（`.tmp` + `os.replace`）并同步更新 `latest.json`；**拒绝写入项目外的目录**。
+
+**踩过的坑（真浏览器 E2E 抓出）**：收集器从管道启动时，Python 在中文 Windows 上按 cp936 输出，
+日志里的 `⇒` 无法编码 → `print` 抛异常 → **文件已落盘但响应发不出去** → 浏览器报
+"Failed to fetch" 并重试一次（仓库里出现两份相同评判）。现在启动即把 stdout/stderr 钉成
+UTF-8（`errors="replace"`），并且日志函数本身兜底 —— 日志永远不该有把请求搞挂的能力。
+`tools/test_judge_collector.py` 里有一条专门复现这个环境的回归（`PYTHONIOENCODING=cp936` + 管道）。
+
+### 20.7 这条链路的门禁
+
+| 工具 | 项数 | 验什么 |
+|---|---|---|
+| `tools/test_judge_collector.py` | 45 | 跨站 403、超限/畸形 4xx 且不落盘、原子落盘、Wilson 与 `vlm_judge.py` 同式、伪造 summary 被识别、拒绝项目外路径、**非 UTF-8 控制台回归**、以及"JS 造的 payload Python 收得下"的跨语言联调 |
+| `tools/test_judge_submit_e2e.mjs` | 14 | **真 Chrome + 真收集器**：CDP 驱动页面 → 连点 4 次选择 → 点「提交评判」 → 断言仓库里出现文件、4 条记录、带洗牌顺序、服务端 summary 存在；并自检浏览器全新（不读上一轮 localStorage）与**不留后台进程** |
+| `tools/smoke_versions.mjs` | 55 | 默认盲测、揭晓/再盲测、确定性洗牌、擦除滑杆、统计口径、提交成功与"收集器不在时"的指引 |
+
+> E2E 的隔离性自检抓到过一个真实测试缺陷：固定调试端口被上一次没清干净的 headless 实例占着，
+> CDP 连到了旧浏览器 → "点了 4 次却记了 13 条"。现在端口随机、按 `--user-data-dir` 杀整棵进程树，
+> 并断言浏览器是全新的。**产品侧当时是对的**（4 次点击 = 4 条记录，由存储写入计数证明）。
