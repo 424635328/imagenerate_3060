@@ -222,7 +222,7 @@ def _build_pipe(fast: bool, sampler: str = "dpmpp2m_karras", adapter_dir: str | 
         if not ok:
             raise RuntimeError(f"模型版本校验失败（{slug}）：{reason}；"
                                f"请跑 python tools/registry.py scan 或恢复权重文件")
-        print(f"[registry] adapter {slug or '(未登记)'} 校验：{reason}")
+        print(f"[registry] adapter {slug or '(未登记)'} 校验：{reason}", flush=True)
     except ImportError:                     # 独立使用 app.py 时（无 config 场景）不阻塞
         pass
     pipe = StableDiffusionPipeline.from_pretrained(
