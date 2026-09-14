@@ -168,3 +168,6 @@ research/fid_*/
 research/judge_*/
 research/sr_probe_*/
 research/*.png
+
+# research/ 里的一次性图（评测截图、联调样张）——与 research/*.png 同类
+research/*.webp
