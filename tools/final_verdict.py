@@ -81,9 +81,16 @@ def main() -> int:
     for directory in fid_dirs:
         fid_rows += read_csv(directory / "fid_metrics.csv")
     judge_rows = []
+    judge_detail = []          # 逐题记录：位置偏置只能从这里看出来
     for directory in [ROOT / "research" / "judge_final", ROOT / "research" / "judge_v4_v5b"]:
-        judge_rows += [row for row in read_csv(directory / "judge_verdicts.csv")
-                       if row.get("summary")]
+        csv_path = directory / "judge_verdicts.csv"
+        if not csv_path.exists():
+            continue
+        for row in read_csv(csv_path):
+            if row.get("summary"):
+                judge_rows.append(row)
+            elif row.get("prompt"):
+                judge_detail.append(row)
     val = {row["adapter"]: float(row["mean_mse"]) for row in val_rows if row.get("mean_mse")}
     images = aggregate_images(image_rows)
     fid = {row["adapter"]: row for row in fid_rows if row.get("adapter")}
@@ -99,7 +106,7 @@ def main() -> int:
              "| 固定协议 val（+配对检验） | 对数据集分布的拟合 | 与训练目标同源，训练越久越低，**不能单独当质量判据** |",
              "| 出图指标 / CLIP | 部署形态下的锐度与 prompt 跟随 | 单张图的统计量，受 prompt 选择影响 |",
              "| KID / CLIP-FID | 与**真实风景照**的分布距离 | 参考集只有 144 张，KID 给了标准差 |",
-             "| 盲测裁判胜率 | VLM 盲选「哪张更好」 | 裁判本身有偏，故随机左右交换 + 给区间 |", ""]
+             "| 盲测裁判胜率 | VLM 盲选「哪张更好」 | 裁判本身有偏，故随机左右交换 + 给区间；**本项目实测已失效（见 §4）** |", ""]
 
     lines += ["## 1. 固定协议 val（144 样本 × 5 时间步，同协议可比）", ""]
     if val:
@@ -151,6 +158,17 @@ def main() -> int:
 
     lines += ["", "## 4. 盲测成对偏好裁判（VLM 当裁判，随机左右交换）", ""]
     if judge_rows:
+        # 位置偏置检测：裁判如果几乎总是选"先出现的那张"（A 位），随机左右交换
+        # 这条防线就失效了 —— 还原后的胜率会退化成"未交换行的占比"，与图像无关。
+        # 所以先算偏置，再决定这一节是"判据"还是"作废记录"。
+        detail = judge_detail
+        a_answers = sum(1 for row in detail if row.get("verdict") == "A")
+        biased = bool(detail) and a_answers / len(detail) >= 0.98
+        per_pair = {}
+        for row in detail:
+            bucket = per_pair.setdefault(row["pair"], [0, 0])
+            bucket[0] += 1 if row.get("verdict") == "A" else 0
+            bucket[1] += 1
         lines += ["| 对比 | 汇总（左/右/平/未解析）| 胜率与 Wilson 95% 区间 |", "|---|---|---|"]
         for row in judge_rows:
             lines.append(f"| {row['pair']} | {row['raw']} | 见 `research/judge_final/judge_verdicts.csv` |")
@@ -169,13 +187,33 @@ def main() -> int:
                     low, high = max(0.0, centre - half), min(1.0, centre + half)
                     verdict = ("左侧显著更好" if low > 0.5 else
                                "右侧显著更好" if high < 0.5 else "**无法区分**")
+                    if biased:
+                        verdict = "**判据无效**"
                     verdict_rows.append((row["pair"], phat, low, high, verdict))
             except (ValueError, IndexError):
                 continue
         if verdict_rows:
+            if biased:
+                lines += [
+                    "> ### ⚠️ 本节判据已被证伪：数字不携带质量信息",
+                    ">",
+                    f"> 逐题复核 `judge_verdicts.csv`：{len(detail)} 条记录里 **{a_answers} 条"
+                    f"（{a_answers / max(1, len(detail)) * 100:.0f}%）都选了『先出现的那张』（A 位）**"
+                    + ("；分组：" + "、".join(f"{pair} {a}/{n}" for pair, (a, n) in sorted(per_pair.items()))
+                       if per_pair else "") + "。",
+                    "> `tools/vlm_judge.py` 的还原逻辑本身正确（`(verdict == \"A\") != swap` ⇒ 按真实身份计数），",
+                    "> 但在『永远选 A』的前提下，还原后的胜率退化成**随机交换排程里未交换行的占比**，",
+                    "> 与图像内容无关 —— 因此下面的胜率与区间**不能作为任何一方的证据**，",
+                    "> 也不能解读为『接近打平』。复现：`python tools/test_version_gallery.py`。",
+                    ">",
+                    "> 结论：四条判据实际只剩 val（非画质）、KID、CLIP 一致性，加上**人眼**。",
+                    "> 人眼判据的入口：`site/versions.html`（版本评判台，含盲测与 Wilson 统计）。",
+                    "",
+                ]
             lines += ["", "| 对比 | 左侧胜率 | 95% 区间 | 判读 |", "|---|---|---|---|"]
             for pair, phat, low, high, verdict in verdict_rows:
-                lines.append(f"| {pair} | {phat * 100:.1f}% | {low * 100:.1f}%–{high * 100:.1f}% | {verdict} |")
+                shown = f"~~{phat * 100:.1f}%~~" if biased else f"{phat * 100:.1f}%"
+                lines.append(f"| {pair} | {shown} | {low * 100:.1f}%–{high * 100:.1f}% | {verdict} |")
     else:
         lines.append("_缺失（`tools/vlm_judge.py` 尚未产出）_")
 

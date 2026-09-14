@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<meta name="description" content="LANDSCAPE·ART 版本评判台：V4 / V5 / V5b / V6q 同一 prompt 同 seed 逐像素对照，含盲测与本地统计。">
+<title>版本评判台 · LANDSCAPE·ART</title>
+<link rel="icon" href="/makoto.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/makoto-180.png">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/extra.css">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/motion.css">
+<link rel="stylesheet" href="/css/shell.css">
+<link rel="stylesheet" href="/css/versions.css">
+</head>
+<body>
+<a class="skip" href="#vbBench">跳到评判区</a>
+
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <img src="/makoto-thunder.svg" alt="" width="44" height="44">
+      <div>
+        <h1>版本评判台</h1>
+        <p>V4 / V5 / V5b / V6q · 同一 prompt 同 seed · 逐像素对照 + 盲测</p>
+      </div>
+    </div>
+    <nav class="top-actions" aria-label="页面操作">
+      <a class="btn ghost" href="/">← 工作台</a>
+      <button type="button" class="btn ghost" id="vbBlind">🎲 开始盲测</button>
+      <button type="button" class="btn ghost" id="vbExport">⤓ 导出我的评判</button>
+      <button type="button" class="btn ghost" id="vbTheme">☀️ 亮色</button>
+    </nav>
+  </header>
+
+  <main class="vb-wrap">
+    <!-- ---------------------------------------------------------- 说明 -->
+    <section class="card vb-intro">
+      <div class="card-head">
+        <div><p class="eyebrow">What am I looking at</p><h2>这批图是什么</h2></div>
+        <span class="vb-badge" id="vbCorpus">载入中…</span>
+      </div>
+      <div class="vb-intro-grid">
+        <div>
+          <h3>语料成立的原因</h3>
+          <p id="vbWhy"></p>
+          <h3>怎么判</h3>
+          <ol class="vb-how">
+            <li>先<b>并排看</b>：四张同构图，差异只来自权重；</li>
+            <li>切<b>擦除对照</b>：拖动分割线，同一位置的纹理差异一眼可见；</li>
+            <li>点<b>开始盲测</b>：标签会被替换成 A/B/C/D 并打乱顺序，你选完再揭晓；</li>
+            <li>随时<b>导出</b>你的选择（JSON/CSV），可以交回给我做统计。</li>
+          </ol>
+        </div>
+        <div>
+          <h3>先看结论（诚实版）</h3>
+          <div id="vbConclusion" class="vb-conclusion"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------- 指标 -->
+    <section class="card vb-metrics">
+      <div class="card-head">
+        <div><p class="eyebrow">Machine criteria</p><h2>机器判据（先说清哪条能信）</h2></div>
+        <span class="muted">光标停在表头上看口径与陷阱</span>
+      </div>
+      <div class="vb-tablewrap">
+        <table class="vb-table" id="vbMetrics"></table>
+      </div>
+      <details class="vb-details">
+        <summary>固定协议 val 完整榜（含免训练融合与基座）</summary>
+        <div class="vb-tablewrap"><table class="vb-table" id="vbValTable"></table></div>
+        <p class="muted vb-foot">
+          这一列<b>不是画质指标</b>：它与训练目标同源（去噪 MSE），训练越久必然越低。
+          放在这里是为了说明"V5b 看起来最好"这件事本身不可用作质量结论。
+        </p>
+      </details>
+      <div class="vb-invalid" id="vbJudgeInvalid"></div>
+    </section>
+
+    <!-- ------------------------------------------------------ 主评判区 -->
+    <section class="card vb-bench" id="vbBench">
+      <div class="card-head">
+        <div><p class="eyebrow">Your turn</p><h2>逐题对照</h2></div>
+        <span class="muted" id="vbProgressLabel">—</span>
+      </div>
+
+      <div class="vb-controls">
+        <div class="vb-prompt">
+          <div class="vb-prompt-head">
+            <button type="button" class="btn ghost tiny" id="vbPrev" title="上一题（←）">‹ 上一题</button>
+            <span class="vb-prompt-no" id="vbPromptNo">—</span>
+            <button type="button" class="btn ghost tiny" id="vbNext" title="下一题（→）">下一题 ›</button>
+          </div>
+          <p class="vb-prompt-text" id="vbPromptText">—</p>
+          <div class="vb-prompt-meta">
+            <label class="vb-field">seed
+              <select id="vbSeed"></select>
+            </label>
+            <label class="vb-field">显示
+              <select id="vbMode">
+                <option value="grid">并排四联</option>
+                <option value="wipe">擦除对照（两两）</option>
+              </select>
+            </label>
+            <label class="vb-field" id="vbWipeFields">
+              A <select id="vbWipeA"></select>
+              B <select id="vbWipeB"></select>
+            </label>
+            <button type="button" class="btn ghost tiny" id="vbUnjudged">跳到未评判 →</button>
+            <button type="button" class="btn ghost tiny" id="vbResetPicks">清空我的评判</button>
+          </div>
+        </div>
+        <div class="vb-flagbar" id="vbFlagBar"></div>
+      </div>
+
+      <div class="progress vb-progress"><div class="track"><i id="vbProgressBar"></i></div></div>
+
+      <div class="vb-stage" id="vbStage"></div>
+      <p class="muted vb-foot" id="vbStageFoot"></p>
+    </section>
+
+    <!-- ------------------------------------------------------ 我的评判 -->
+    <section class="card vb-tally" id="vbTallyCard">
+      <div class="card-head">
+        <div><p class="eyebrow">Your verdict</p><h2>你的评判统计</h2></div>
+        <span class="muted" id="vbTallyCount">0 题</span>
+      </div>
+      <div class="vb-tablewrap"><table class="vb-table" id="vbTally"></table></div>
+      <p class="muted vb-foot">
+        4 选 1 盲测里<b>随机期望是 25%</b>（两两擦除对照里是 50%）：Wilson 95% 区间包含期望值 ⇒
+        按本项目判据记为「无法区分」。区间宽度随题量收窄 —— 想判出 60/40 级别的差异，至少需要几十题。
+      </p>
+      <div class="vb-pairs" id="vbPairs"></div>
+    </section>
+
+    <!-- -------------------------------------------------------- 超分 -->
+    <section class="card vb-sr">
+      <div class="card-head">
+        <div><p class="eyebrow">Super resolution</p><h2>唯一被证据支持的提升：自训超分</h2></div>
+        <span class="vb-badge ok" id="vbSrBadge">—</span>
+      </div>
+      <p class="vb-note" id="vbSrNote"></p>
+      <div class="vb-tablewrap"><table class="vb-table" id="vbSrTable"></table></div>
+      <div class="vb-sr-grid" id="vbSrGrid"></div>
+      <p class="muted vb-foot">
+        HR 是 4× 下采样的真值参考。GAN 用 PSNR 换细节（感知-失真权衡），
+        判读"纹理是否可信、有没有臆造"必须靠眼睛 —— 这也是本院子里唯一值得盯的一处。
+      </p>
+    </section>
+
+    <footer class="footer">
+      <p>
+        数据出处：<code>research/fid_v6/</code>（出图）、<code>research/eval_val.csv</code>（固定协议 val）、
+        <code>research/judge_final/</code>（盲测裁判）、<code>research/sr_probe_final/</code>（超分探针）；
+        由 <code>tools/make_version_gallery.py</code> 打包成 <code>site/data/versions.json</code>。
+        结论与局限见 <code>docs/FINAL_VERDICT.md</code> 与 <code>docs/TRAINING.md</code>。
+      </p>
+    </footer>
+  </main>
+</div>
+
+<div class="vb-zoom" id="vbZoom" hidden>
+  <img alt="" id="vbZoomImg">
+  <div class="vb-zoom-bar">
+    <span id="vbZoomLabel"></span>
+    <span class="muted">点击任意处 / Esc 关闭 · 原尺寸 1:1</span>
+  </div>
+</div>
+
+<script type="module" src="/js/versions.js"></script>
+</body>
+</html>

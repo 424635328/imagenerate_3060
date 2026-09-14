@@ -9,10 +9,11 @@
  *   static asset    → stale-while-revalidate (instant second load, fresh later)
  *   anything else   → passthrough
  */
-const CACHE_VERSION = 'lsart-shell-v5';
+const CACHE_VERSION = 'lsart-shell-v6';
 const SHELL = [
   '/',
   '/index.html',
+  '/versions.html',
   '/styles.css',
   '/extra.css',
   '/css/tokens.css',
@@ -25,6 +26,8 @@ const SHELL = [
   '/css/ab.css',
   '/css/shell.css',
   '/css/advisor.css',
+  '/css/versions.css',
+  '/data/versions.json',
   '/js/config.js',
   '/js/api.js',
   '/js/store.js',
@@ -41,12 +44,13 @@ const SHELL = [
   '/js/shell.js',
   '/js/advisor.js',
   '/js/main.js',
+  '/js/versions.js',
   '/makoto.svg',
   '/makoto-thunder.svg',
   '/makoto-180.png',
 ];
 
-const STATIC_PREFIXES = ['/css/', '/js/', '/img/', '/makoto', '/styles.css', '/extra.css'];
+const STATIC_PREFIXES = ['/css/', '/js/', '/img/', '/data/', '/makoto', '/styles.css', '/extra.css'];
 
 function isStatic(url) {
   if (url.origin !== location.origin) return false;

@@ -1,0 +1,1570 @@
+{
+ "schema": 1,
+ "built_by": "tools/make_version_gallery.py",
+ "protocol": {
+  "prompt_set": "留出提示词（未参与任何训练）",
+  "prompt_count": 24,
+  "seeds": [
+   101,
+   108
+  ],
+  "res": 512,
+  "steps": 24,
+  "cfg": 7.5,
+  "aligned": "同一 (prompt, seed) 下初始噪声逐位相同 ⇒ 可逐像素对照",
+  "alignment": {
+   "method": "8×8 灰度低频结构的皮尔逊相关（64 维）",
+   "cross_version_r": 0.918,
+   "cross_version_p10": 0.806,
+   "different_seed_r": -0.074,
+   "different_prompt_r": 0.55,
+   "n_trials": 144
+  },
+  "sources": [
+   "research/fid_v6/",
+   "research/fid_v6/fid_metrics.csv",
+   "research/eval_val.csv",
+   "research/judge_final/",
+   "research/sr_probe_final/"
+  ],
+  "note": "全部图片来自同一次生成（research/judge_final/images 与 research/fid_v6 逐字节同源）。"
+ },
+ "columns": [
+  {
+   "key": "val_mse",
+   "label": "固定协议 val ↓",
+   "digits": 6,
+   "means": "同源去噪 MSE（144 样本 × 5 时间步）",
+   "caveat": "与训练目标同源，训练越久必然越低；**不是画质指标**"
+  },
+  {
+   "key": "kid",
+   "label": "留出集 KID ↓",
+   "digits": 6,
+   "means": "与真实照片分布的偏差（无偏 MMD，越小越像真照片）",
+   "caveat": "σ≈3.5e-05，差异小于 σ 即在噪声内"
+  },
+  {
+   "key": "clip_fid",
+   "label": "CLIP-FID ↓",
+   "digits": 4,
+   "means": "CLIP 特征空间的分布距离",
+   "caveat": "越大越『不自然』，但对分辨率/风格敏感"
+  },
+  {
+   "key": "clip_score",
+   "label": "CLIP 一致性 ↑",
+   "digits": 4,
+   "means": "prompt 跟随度（图与文是否对得上）",
+   "caveat": "与『好看』无关，只测『听话』"
+  },
+  {
+   "key": "sharpness",
+   "label": "细节量 ↑",
+   "digits": 1,
+   "means": "Laplacian 方差（越大越锐）",
+   "caveat": "过锐/噪点也会拉高，需人眼确认"
+  },
+  {
+   "key": "text_encoder",
+   "label": "文本编码器",
+   "digits": 0,
+   "means": "该权重是否真的微调过 CLIP",
+   "caveat": "V4/V5b 微调过，V5/V6q 用基座 TE"
+  }
+ ],
+ "prompts": [
+  "a snow-capped mountain range reflected in a still alpine lake at dawn, ultra detailed",
+  "dense pine forest in heavy fog, soft god rays, moody green tones",
+  "golden desert dunes with long shadows at sunset, minimal composition",
+  "aurora borealis over a frozen lake, stars, deep blue and green, long exposure",
+  "autumn valley with a winding river, warm red and orange foliage, aerial view",
+  "dramatic sea cliffs at stormy sunset, crashing waves, spray and mist",
+  "terraced rice fields on a hillside in morning mist, southeast asia",
+  "lavender field under a dramatic summer sky, distant farmhouse",
+  "winter village at dusk, warm window lights, falling snow, cozy atmosphere",
+  "volcanic landscape with black sand beach and turquoise water, aerial",
+  "bamboo grove path with dappled sunlight, serene and quiet",
+  "canyon river winding through red rock walls, midday sun, wide angle",
+  "misty hills layered in blue haze at sunrise, minimalist ink painting feel",
+  "tropical island with palm trees and clear shallow water, bright sky",
+  "rolling green hills with a lone oak tree under cumulus clouds",
+  "glacier lagoon with floating icebergs, cold blue light, overcast",
+  "waterfall in a lush rainforest, moss covered rocks, long exposure",
+  "savanna grassland at golden hour with acacia trees and distant mountains",
+  "coastal road along cliffs with ocean spray, late afternoon light",
+  "snowy forest clearing with animal tracks, soft winter light",
+  "salt flats with mirror reflection of the sky at sunset, ultra wide",
+  "cherry blossom trees along a quiet riverbank, petals on the water",
+  "dramatic thunderstorm over open plains, lightning in the distance",
+  "ancient stone bridge in a misty valley, ivy covered, soft morning light"
+ ],
+ "versions": [
+  {
+   "id": "V4",
+   "label": "V4",
+   "slogan": "部署基线",
+   "adapter": "models/v4_640/adapter_best",
+   "recipe": "SD1.5 · 640 训练 · 抗过拟合倍增（当前线上权重）",
+   "note": "本项目交付基线；所有候选都以它为准绳。",
+   "source": "research/fid_v6/V4",
+   "cells": [
+    {
+     "prompt": 0,
+     "seed": 101,
+     "file": "img/versions/V4/p00_s101.webp",
+     "sha16": "839274b3b9d48057"
+    },
+    {
+     "prompt": 0,
+     "seed": 108,
+     "file": "img/versions/V4/p00_s108.webp",
+     "sha16": "0dc12852a5022bc6"
+    },
+    {
+     "prompt": 1,
+     "seed": 101,
+     "file": "img/versions/V4/p01_s101.webp",
+     "sha16": "c153188b32d55f90"
+    },
+    {
+     "prompt": 1,
+     "seed": 108,
+     "file": "img/versions/V4/p01_s108.webp",
+     "sha16": "7314bcd392d8e95e"
+    },
+    {
+     "prompt": 2,
+     "seed": 101,
+     "file": "img/versions/V4/p02_s101.webp",
+     "sha16": "a0a5e06a8f73bded"
+    },
+    {
+     "prompt": 2,
+     "seed": 108,
+     "file": "img/versions/V4/p02_s108.webp",
+     "sha16": "26f2a7ba5b00992b"
+    },
+    {
+     "prompt": 3,
+     "seed": 101,
+     "file": "img/versions/V4/p03_s101.webp",
+     "sha16": "1a4c22306af077a9"
+    },
+    {
+     "prompt": 3,
+     "seed": 108,
+     "file": "img/versions/V4/p03_s108.webp",
+     "sha16": "0f6718badec42d93"
+    },
+    {
+     "prompt": 4,
+     "seed": 101,
+     "file": "img/versions/V4/p04_s101.webp",
+     "sha16": "e2a8b9d81c4c6232"
+    },
+    {
+     "prompt": 4,
+     "seed": 108,
+     "file": "img/versions/V4/p04_s108.webp",
+     "sha16": "bccc27eac46ceaf7"
+    },
+    {
+     "prompt": 5,
+     "seed": 101,
+     "file": "img/versions/V4/p05_s101.webp",
+     "sha16": "51986334cfb49be7"
+    },
+    {
+     "prompt": 5,
+     "seed": 108,
+     "file": "img/versions/V4/p05_s108.webp",
+     "sha16": "8d17c1d112fd5f11"
+    },
+    {
+     "prompt": 6,
+     "seed": 101,
+     "file": "img/versions/V4/p06_s101.webp",
+     "sha16": "0410008fd52d697c"
+    },
+    {
+     "prompt": 6,
+     "seed": 108,
+     "file": "img/versions/V4/p06_s108.webp",
+     "sha16": "1061819f1a07ce3f"
+    },
+    {
+     "prompt": 7,
+     "seed": 101,
+     "file": "img/versions/V4/p07_s101.webp",
+     "sha16": "20b16f6a2d913531"
+    },
+    {
+     "prompt": 7,
+     "seed": 108,
+     "file": "img/versions/V4/p07_s108.webp",
+     "sha16": "479e5945db20f726"
+    },
+    {
+     "prompt": 8,
+     "seed": 101,
+     "file": "img/versions/V4/p08_s101.webp",
+     "sha16": "04d24aec19d32c05"
+    },
+    {
+     "prompt": 8,
+     "seed": 108,
+     "file": "img/versions/V4/p08_s108.webp",
+     "sha16": "fe2a6261180d5b2e"
+    },
+    {
+     "prompt": 9,
+     "seed": 101,
+     "file": "img/versions/V4/p09_s101.webp",
+     "sha16": "0372440288f7a8cd"
+    },
+    {
+     "prompt": 9,
+     "seed": 108,
+     "file": "img/versions/V4/p09_s108.webp",
+     "sha16": "a01a303c090bad46"
+    },
+    {
+     "prompt": 10,
+     "seed": 101,
+     "file": "img/versions/V4/p10_s101.webp",
+     "sha16": "abc12c10d7b4476f"
+    },
+    {
+     "prompt": 10,
+     "seed": 108,
+     "file": "img/versions/V4/p10_s108.webp",
+     "sha16": "11013300c47e167e"
+    },
+    {
+     "prompt": 11,
+     "seed": 101,
+     "file": "img/versions/V4/p11_s101.webp",
+     "sha16": "6ddf69bfc40488f9"
+    },
+    {
+     "prompt": 11,
+     "seed": 108,
+     "file": "img/versions/V4/p11_s108.webp",
+     "sha16": "475d39f2a44a4f66"
+    },
+    {
+     "prompt": 12,
+     "seed": 101,
+     "file": "img/versions/V4/p12_s101.webp",
+     "sha16": "0acc89bdb73424cc"
+    },
+    {
+     "prompt": 12,
+     "seed": 108,
+     "file": "img/versions/V4/p12_s108.webp",
+     "sha16": "4531509e6683ae00"
+    },
+    {
+     "prompt": 13,
+     "seed": 101,
+     "file": "img/versions/V4/p13_s101.webp",
+     "sha16": "333c1c284c6d7636"
+    },
+    {
+     "prompt": 13,
+     "seed": 108,
+     "file": "img/versions/V4/p13_s108.webp",
+     "sha16": "348fd58f7ff0b782"
+    },
+    {
+     "prompt": 14,
+     "seed": 101,
+     "file": "img/versions/V4/p14_s101.webp",
+     "sha16": "560c20e8dad72bc2"
+    },
+    {
+     "prompt": 14,
+     "seed": 108,
+     "file": "img/versions/V4/p14_s108.webp",
+     "sha16": "15aab350626294c8"
+    },
+    {
+     "prompt": 15,
+     "seed": 101,
+     "file": "img/versions/V4/p15_s101.webp",
+     "sha16": "eae09566686a7f93"
+    },
+    {
+     "prompt": 15,
+     "seed": 108,
+     "file": "img/versions/V4/p15_s108.webp",
+     "sha16": "295ebef068ed42a4"
+    },
+    {
+     "prompt": 16,
+     "seed": 101,
+     "file": "img/versions/V4/p16_s101.webp",
+     "sha16": "3d6b0e3f670bfa46"
+    },
+    {
+     "prompt": 16,
+     "seed": 108,
+     "file": "img/versions/V4/p16_s108.webp",
+     "sha16": "fc7ce1d63ac192de"
+    },
+    {
+     "prompt": 17,
+     "seed": 101,
+     "file": "img/versions/V4/p17_s101.webp",
+     "sha16": "914e689f923b4c21"
+    },
+    {
+     "prompt": 17,
+     "seed": 108,
+     "file": "img/versions/V4/p17_s108.webp",
+     "sha16": "d2ec09686ea3e9ae"
+    },
+    {
+     "prompt": 18,
+     "seed": 101,
+     "file": "img/versions/V4/p18_s101.webp",
+     "sha16": "808c1b4201c792f9"
+    },
+    {
+     "prompt": 18,
+     "seed": 108,
+     "file": "img/versions/V4/p18_s108.webp",
+     "sha16": "3e1aa3caf8b31d61"
+    },
+    {
+     "prompt": 19,
+     "seed": 101,
+     "file": "img/versions/V4/p19_s101.webp",
+     "sha16": "bf694d0d66b6e53b"
+    },
+    {
+     "prompt": 19,
+     "seed": 108,
+     "file": "img/versions/V4/p19_s108.webp",
+     "sha16": "bdeaf5cfb2e26cab"
+    },
+    {
+     "prompt": 20,
+     "seed": 101,
+     "file": "img/versions/V4/p20_s101.webp",
+     "sha16": "aadf014362e484c4"
+    },
+    {
+     "prompt": 20,
+     "seed": 108,
+     "file": "img/versions/V4/p20_s108.webp",
+     "sha16": "d37e73a93b1132bb"
+    },
+    {
+     "prompt": 21,
+     "seed": 101,
+     "file": "img/versions/V4/p21_s101.webp",
+     "sha16": "45fcb97cee485637"
+    },
+    {
+     "prompt": 21,
+     "seed": 108,
+     "file": "img/versions/V4/p21_s108.webp",
+     "sha16": "946c03730cacda76"
+    },
+    {
+     "prompt": 22,
+     "seed": 101,
+     "file": "img/versions/V4/p22_s101.webp",
+     "sha16": "d2cc9745c3b7b12a"
+    },
+    {
+     "prompt": 22,
+     "seed": 108,
+     "file": "img/versions/V4/p22_s108.webp",
+     "sha16": "88e352dbd7db7b53"
+    },
+    {
+     "prompt": 23,
+     "seed": 101,
+     "file": "img/versions/V4/p23_s101.webp",
+     "sha16": "419d237f42df9907"
+    },
+    {
+     "prompt": 23,
+     "seed": 108,
+     "file": "img/versions/V4/p23_s108.webp",
+     "sha16": "623816f68be1c041"
+    }
+   ],
+   "kid": 0.000359,
+   "kid_std": 3.5e-05,
+   "clip_fid": 0.4646,
+   "clip_score": 0.2716,
+   "sharpness": 697.96,
+   "text_encoder": "fine-tuned",
+   "val_mse": 0.186437,
+   "val_std": 0.190435,
+   "val_samples": 144,
+   "val_comparable": true,
+   "val_note": null
+  },
+  {
+   "id": "V5",
+   "label": "V5",
+   "slogan": "min-SNR-γ + Prodigy",
+   "adapter": "models/v5_lora/adapter_best",
+   "recipe": "640 · r64 · Prodigy · min-SNR-γ=5 · EMA",
+   "note": "只改优化器与损失加权（论文路线：arXiv:2303.09556 / 2306.06101）。",
+   "source": "research/fid_v6/V5",
+   "cells": [
+    {
+     "prompt": 0,
+     "seed": 101,
+     "file": "img/versions/V5/p00_s101.webp",
+     "sha16": "2f9883e883eba5eb"
+    },
+    {
+     "prompt": 0,
+     "seed": 108,
+     "file": "img/versions/V5/p00_s108.webp",
+     "sha16": "4ea6a4a3ab488385"
+    },
+    {
+     "prompt": 1,
+     "seed": 101,
+     "file": "img/versions/V5/p01_s101.webp",
+     "sha16": "a1ccd776c1315fbb"
+    },
+    {
+     "prompt": 1,
+     "seed": 108,
+     "file": "img/versions/V5/p01_s108.webp",
+     "sha16": "c616effb92a93a8d"
+    },
+    {
+     "prompt": 2,
+     "seed": 101,
+     "file": "img/versions/V5/p02_s101.webp",
+     "sha16": "c0cf5055160b9266"
+    },
+    {
+     "prompt": 2,
+     "seed": 108,
+     "file": "img/versions/V5/p02_s108.webp",
+     "sha16": "c5dda06c08c623d9"
+    },
+    {
+     "prompt": 3,
+     "seed": 101,
+     "file": "img/versions/V5/p03_s101.webp",
+     "sha16": "580324134845cf79"
+    },
+    {
+     "prompt": 3,
+     "seed": 108,
+     "file": "img/versions/V5/p03_s108.webp",
+     "sha16": "a2c5b2df6f9266b7"
+    },
+    {
+     "prompt": 4,
+     "seed": 101,
+     "file": "img/versions/V5/p04_s101.webp",
+     "sha16": "9bc568d56da492ed"
+    },
+    {
+     "prompt": 4,
+     "seed": 108,
+     "file": "img/versions/V5/p04_s108.webp",
+     "sha16": "7b4aa2ffda3b6834"
+    },
+    {
+     "prompt": 5,
+     "seed": 101,
+     "file": "img/versions/V5/p05_s101.webp",
+     "sha16": "e5b498028b76a6a8"
+    },
+    {
+     "prompt": 5,
+     "seed": 108,
+     "file": "img/versions/V5/p05_s108.webp",
+     "sha16": "fd9437d54c3e8943"
+    },
+    {
+     "prompt": 6,
+     "seed": 101,
+     "file": "img/versions/V5/p06_s101.webp",
+     "sha16": "eaf459c9996ae95f"
+    },
+    {
+     "prompt": 6,
+     "seed": 108,
+     "file": "img/versions/V5/p06_s108.webp",
+     "sha16": "78d407774dd3d46b"
+    },
+    {
+     "prompt": 7,
+     "seed": 101,
+     "file": "img/versions/V5/p07_s101.webp",
+     "sha16": "1d4169d1b5896057"
+    },
+    {
+     "prompt": 7,
+     "seed": 108,
+     "file": "img/versions/V5/p07_s108.webp",
+     "sha16": "50c7e40127617764"
+    },
+    {
+     "prompt": 8,
+     "seed": 101,
+     "file": "img/versions/V5/p08_s101.webp",
+     "sha16": "8e8871d3620522c0"
+    },
+    {
+     "prompt": 8,
+     "seed": 108,
+     "file": "img/versions/V5/p08_s108.webp",
+     "sha16": "73b914074e859e3b"
+    },
+    {
+     "prompt": 9,
+     "seed": 101,
+     "file": "img/versions/V5/p09_s101.webp",
+     "sha16": "d71b8b4903236ca5"
+    },
+    {
+     "prompt": 9,
+     "seed": 108,
+     "file": "img/versions/V5/p09_s108.webp",
+     "sha16": "f703ce84523744bd"
+    },
+    {
+     "prompt": 10,
+     "seed": 101,
+     "file": "img/versions/V5/p10_s101.webp",
+     "sha16": "d2b6ea3574cd9547"
+    },
+    {
+     "prompt": 10,
+     "seed": 108,
+     "file": "img/versions/V5/p10_s108.webp",
+     "sha16": "32e88a37b49e5108"
+    },
+    {
+     "prompt": 11,
+     "seed": 101,
+     "file": "img/versions/V5/p11_s101.webp",
+     "sha16": "e39e9fcb3c9d2a8a"
+    },
+    {
+     "prompt": 11,
+     "seed": 108,
+     "file": "img/versions/V5/p11_s108.webp",
+     "sha16": "59824facb8933ebf"
+    },
+    {
+     "prompt": 12,
+     "seed": 101,
+     "file": "img/versions/V5/p12_s101.webp",
+     "sha16": "7fb19948c6c280b3"
+    },
+    {
+     "prompt": 12,
+     "seed": 108,
+     "file": "img/versions/V5/p12_s108.webp",
+     "sha16": "731d5c7a5c9d2945"
+    },
+    {
+     "prompt": 13,
+     "seed": 101,
+     "file": "img/versions/V5/p13_s101.webp",
+     "sha16": "6d4ff7d70e3a2cd7"
+    },
+    {
+     "prompt": 13,
+     "seed": 108,
+     "file": "img/versions/V5/p13_s108.webp",
+     "sha16": "2b082bbfe2fca496"
+    },
+    {
+     "prompt": 14,
+     "seed": 101,
+     "file": "img/versions/V5/p14_s101.webp",
+     "sha16": "c08dc1b661e1bf9c"
+    },
+    {
+     "prompt": 14,
+     "seed": 108,
+     "file": "img/versions/V5/p14_s108.webp",
+     "sha16": "58931bc9822e9e7b"
+    },
+    {
+     "prompt": 15,
+     "seed": 101,
+     "file": "img/versions/V5/p15_s101.webp",
+     "sha16": "1ff277ea33299c9e"
+    },
+    {
+     "prompt": 15,
+     "seed": 108,
+     "file": "img/versions/V5/p15_s108.webp",
+     "sha16": "4406a8552124c0ae"
+    },
+    {
+     "prompt": 16,
+     "seed": 101,
+     "file": "img/versions/V5/p16_s101.webp",
+     "sha16": "7a1fd9f8efdb9e25"
+    },
+    {
+     "prompt": 16,
+     "seed": 108,
+     "file": "img/versions/V5/p16_s108.webp",
+     "sha16": "c4ab0ee6d90cae75"
+    },
+    {
+     "prompt": 17,
+     "seed": 101,
+     "file": "img/versions/V5/p17_s101.webp",
+     "sha16": "3ad3a4bf427a595c"
+    },
+    {
+     "prompt": 17,
+     "seed": 108,
+     "file": "img/versions/V5/p17_s108.webp",
+     "sha16": "7812ea0b4f15e3c9"
+    },
+    {
+     "prompt": 18,
+     "seed": 101,
+     "file": "img/versions/V5/p18_s101.webp",
+     "sha16": "4b42f9178ff4d4c7"
+    },
+    {
+     "prompt": 18,
+     "seed": 108,
+     "file": "img/versions/V5/p18_s108.webp",
+     "sha16": "8a8519fc67245eb4"
+    },
+    {
+     "prompt": 19,
+     "seed": 101,
+     "file": "img/versions/V5/p19_s101.webp",
+     "sha16": "f8ff167be48f64e9"
+    },
+    {
+     "prompt": 19,
+     "seed": 108,
+     "file": "img/versions/V5/p19_s108.webp",
+     "sha16": "f550a007415ab8d5"
+    },
+    {
+     "prompt": 20,
+     "seed": 101,
+     "file": "img/versions/V5/p20_s101.webp",
+     "sha16": "8d1f88d24b5ea11d"
+    },
+    {
+     "prompt": 20,
+     "seed": 108,
+     "file": "img/versions/V5/p20_s108.webp",
+     "sha16": "dcca243f305e754e"
+    },
+    {
+     "prompt": 21,
+     "seed": 101,
+     "file": "img/versions/V5/p21_s101.webp",
+     "sha16": "3520b086f9208cff"
+    },
+    {
+     "prompt": 21,
+     "seed": 108,
+     "file": "img/versions/V5/p21_s108.webp",
+     "sha16": "5d644d6ff568761a"
+    },
+    {
+     "prompt": 22,
+     "seed": 101,
+     "file": "img/versions/V5/p22_s101.webp",
+     "sha16": "6422d1f747732090"
+    },
+    {
+     "prompt": 22,
+     "seed": 108,
+     "file": "img/versions/V5/p22_s108.webp",
+     "sha16": "85aefdb85bc8c790"
+    },
+    {
+     "prompt": 23,
+     "seed": 101,
+     "file": "img/versions/V5/p23_s101.webp",
+     "sha16": "c47ec5fcfb20b2c5"
+    },
+    {
+     "prompt": 23,
+     "seed": 108,
+     "file": "img/versions/V5/p23_s108.webp",
+     "sha16": "81e81d8b080611f3"
+    }
+   ],
+   "kid": 0.000404,
+   "kid_std": 3.6e-05,
+   "clip_fid": 0.4848,
+   "clip_score": 0.2726,
+   "sharpness": 632.49,
+   "text_encoder": "base",
+   "val_mse": 0.185891,
+   "val_std": 0.189826,
+   "val_samples": 144,
+   "val_comparable": true,
+   "val_note": null
+  },
+  {
+   "id": "V5b",
+   "label": "V5b",
+   "slogan": "V5 + 微调 CLIP",
+   "adapter": "models/v5b_lora/adapter_best",
+   "recipe": "V5 续训 · 512 缓存 · 文本编码器 fp32/adamw8bit",
+   "note": "唯一变量 = 文本编码器是否真的被微调（V4 的 TE 与基座逐位相同，等于没训）。",
+   "source": "research/fid_v6/V5b",
+   "cells": [
+    {
+     "prompt": 0,
+     "seed": 101,
+     "file": "img/versions/V5b/p00_s101.webp",
+     "sha16": "f1236b620bb3680f"
+    },
+    {
+     "prompt": 0,
+     "seed": 108,
+     "file": "img/versions/V5b/p00_s108.webp",
+     "sha16": "6992a33632bb91d0"
+    },
+    {
+     "prompt": 1,
+     "seed": 101,
+     "file": "img/versions/V5b/p01_s101.webp",
+     "sha16": "378e2793d9a104bd"
+    },
+    {
+     "prompt": 1,
+     "seed": 108,
+     "file": "img/versions/V5b/p01_s108.webp",
+     "sha16": "6188bd1583ee98f2"
+    },
+    {
+     "prompt": 2,
+     "seed": 101,
+     "file": "img/versions/V5b/p02_s101.webp",
+     "sha16": "03320f8fed5ce29b"
+    },
+    {
+     "prompt": 2,
+     "seed": 108,
+     "file": "img/versions/V5b/p02_s108.webp",
+     "sha16": "4481a620459c7f21"
+    },
+    {
+     "prompt": 3,
+     "seed": 101,
+     "file": "img/versions/V5b/p03_s101.webp",
+     "sha16": "7ca5954060aae0a8"
+    },
+    {
+     "prompt": 3,
+     "seed": 108,
+     "file": "img/versions/V5b/p03_s108.webp",
+     "sha16": "d0886fea21f99b4b"
+    },
+    {
+     "prompt": 4,
+     "seed": 101,
+     "file": "img/versions/V5b/p04_s101.webp",
+     "sha16": "df37eccde39e6486"
+    },
+    {
+     "prompt": 4,
+     "seed": 108,
+     "file": "img/versions/V5b/p04_s108.webp",
+     "sha16": "7211396c4f653eec"
+    },
+    {
+     "prompt": 5,
+     "seed": 101,
+     "file": "img/versions/V5b/p05_s101.webp",
+     "sha16": "89329bd30ed99fc8"
+    },
+    {
+     "prompt": 5,
+     "seed": 108,
+     "file": "img/versions/V5b/p05_s108.webp",
+     "sha16": "d3165ce2108aeeb6"
+    },
+    {
+     "prompt": 6,
+     "seed": 101,
+     "file": "img/versions/V5b/p06_s101.webp",
+     "sha16": "f9e57cf514e0011a"
+    },
+    {
+     "prompt": 6,
+     "seed": 108,
+     "file": "img/versions/V5b/p06_s108.webp",
+     "sha16": "a46279c34054a918"
+    },
+    {
+     "prompt": 7,
+     "seed": 101,
+     "file": "img/versions/V5b/p07_s101.webp",
+     "sha16": "49c06ad4554bd412"
+    },
+    {
+     "prompt": 7,
+     "seed": 108,
+     "file": "img/versions/V5b/p07_s108.webp",
+     "sha16": "6d7a00d18053a885"
+    },
+    {
+     "prompt": 8,
+     "seed": 101,
+     "file": "img/versions/V5b/p08_s101.webp",
+     "sha16": "73a1b30c4ae4ee16"
+    },
+    {
+     "prompt": 8,
+     "seed": 108,
+     "file": "img/versions/V5b/p08_s108.webp",
+     "sha16": "0c32e25665520baa"
+    },
+    {
+     "prompt": 9,
+     "seed": 101,
+     "file": "img/versions/V5b/p09_s101.webp",
+     "sha16": "bfd4a4fef290b1b3"
+    },
+    {
+     "prompt": 9,
+     "seed": 108,
+     "file": "img/versions/V5b/p09_s108.webp",
+     "sha16": "3d6c54bcd0b6b9e6"
+    },
+    {
+     "prompt": 10,
+     "seed": 101,
+     "file": "img/versions/V5b/p10_s101.webp",
+     "sha16": "3f90bf47a5d4b7dc"
+    },
+    {
+     "prompt": 10,
+     "seed": 108,
+     "file": "img/versions/V5b/p10_s108.webp",
+     "sha16": "658c8ea6e8baee76"
+    },
+    {
+     "prompt": 11,
+     "seed": 101,
+     "file": "img/versions/V5b/p11_s101.webp",
+     "sha16": "ae79fad366c5c248"
+    },
+    {
+     "prompt": 11,
+     "seed": 108,
+     "file": "img/versions/V5b/p11_s108.webp",
+     "sha16": "c92846209bb10028"
+    },
+    {
+     "prompt": 12,
+     "seed": 101,
+     "file": "img/versions/V5b/p12_s101.webp",
+     "sha16": "c7ad2cb5730af284"
+    },
+    {
+     "prompt": 12,
+     "seed": 108,
+     "file": "img/versions/V5b/p12_s108.webp",
+     "sha16": "ef341ba57159afb9"
+    },
+    {
+     "prompt": 13,
+     "seed": 101,
+     "file": "img/versions/V5b/p13_s101.webp",
+     "sha16": "7fbe04cd2b8d3c86"
+    },
+    {
+     "prompt": 13,
+     "seed": 108,
+     "file": "img/versions/V5b/p13_s108.webp",
+     "sha16": "8fe8c485de366025"
+    },
+    {
+     "prompt": 14,
+     "seed": 101,
+     "file": "img/versions/V5b/p14_s101.webp",
+     "sha16": "9d77ba1129ded0c9"
+    },
+    {
+     "prompt": 14,
+     "seed": 108,
+     "file": "img/versions/V5b/p14_s108.webp",
+     "sha16": "9a6004a8dbef3e72"
+    },
+    {
+     "prompt": 15,
+     "seed": 101,
+     "file": "img/versions/V5b/p15_s101.webp",
+     "sha16": "1f7c90227cfb420b"
+    },
+    {
+     "prompt": 15,
+     "seed": 108,
+     "file": "img/versions/V5b/p15_s108.webp",
+     "sha16": "e6d2956994210fc3"
+    },
+    {
+     "prompt": 16,
+     "seed": 101,
+     "file": "img/versions/V5b/p16_s101.webp",
+     "sha16": "d5a216edc86257c8"
+    },
+    {
+     "prompt": 16,
+     "seed": 108,
+     "file": "img/versions/V5b/p16_s108.webp",
+     "sha16": "04dd90ae720c806d"
+    },
+    {
+     "prompt": 17,
+     "seed": 101,
+     "file": "img/versions/V5b/p17_s101.webp",
+     "sha16": "2057c97063d0732d"
+    },
+    {
+     "prompt": 17,
+     "seed": 108,
+     "file": "img/versions/V5b/p17_s108.webp",
+     "sha16": "8b20f4b9de8dcdce"
+    },
+    {
+     "prompt": 18,
+     "seed": 101,
+     "file": "img/versions/V5b/p18_s101.webp",
+     "sha16": "072a1701bd796612"
+    },
+    {
+     "prompt": 18,
+     "seed": 108,
+     "file": "img/versions/V5b/p18_s108.webp",
+     "sha16": "424735fc640495e3"
+    },
+    {
+     "prompt": 19,
+     "seed": 101,
+     "file": "img/versions/V5b/p19_s101.webp",
+     "sha16": "39a6d33d07878b26"
+    },
+    {
+     "prompt": 19,
+     "seed": 108,
+     "file": "img/versions/V5b/p19_s108.webp",
+     "sha16": "d72d2d50d985af3c"
+    },
+    {
+     "prompt": 20,
+     "seed": 101,
+     "file": "img/versions/V5b/p20_s101.webp",
+     "sha16": "bb4cbbba03a16ea7"
+    },
+    {
+     "prompt": 20,
+     "seed": 108,
+     "file": "img/versions/V5b/p20_s108.webp",
+     "sha16": "d330742c2e0a6ec3"
+    },
+    {
+     "prompt": 21,
+     "seed": 101,
+     "file": "img/versions/V5b/p21_s101.webp",
+     "sha16": "d728914f1bc97b90"
+    },
+    {
+     "prompt": 21,
+     "seed": 108,
+     "file": "img/versions/V5b/p21_s108.webp",
+     "sha16": "4992f4e2a1ca65a0"
+    },
+    {
+     "prompt": 22,
+     "seed": 101,
+     "file": "img/versions/V5b/p22_s101.webp",
+     "sha16": "7ddfbb5e5680d606"
+    },
+    {
+     "prompt": 22,
+     "seed": 108,
+     "file": "img/versions/V5b/p22_s108.webp",
+     "sha16": "71931a7442c1cb6c"
+    },
+    {
+     "prompt": 23,
+     "seed": 101,
+     "file": "img/versions/V5b/p23_s101.webp",
+     "sha16": "127405a6ca4f7f50"
+    },
+    {
+     "prompt": 23,
+     "seed": 108,
+     "file": "img/versions/V5b/p23_s108.webp",
+     "sha16": "400fc9e3877e1c46"
+    }
+   ],
+   "kid": 0.000377,
+   "kid_std": 3.5e-05,
+   "clip_fid": 0.4649,
+   "clip_score": 0.272,
+   "sharpness": 708.08,
+   "text_encoder": "fine-tuned",
+   "val_mse": 0.185834,
+   "val_std": 0.189808,
+   "val_samples": 144,
+   "val_comparable": true,
+   "val_note": null
+  },
+  {
+   "id": "V6q",
+   "label": "V6q",
+   "slogan": "重写 caption",
+   "adapter": "models/v6_qwen/adapter_best",
+   "recipe": "Qwen2-VL-2B 重标注 1649 条结构化 caption 后重训",
+   "note": "唯一变量 = caption（配方与 V5 逐项相同）。目录名 V6 是当时的旧命名。",
+   "source": "research/fid_v6/V6",
+   "cells": [
+    {
+     "prompt": 0,
+     "seed": 101,
+     "file": "img/versions/V6q/p00_s101.webp",
+     "sha16": "22fe58e7238c0384"
+    },
+    {
+     "prompt": 0,
+     "seed": 108,
+     "file": "img/versions/V6q/p00_s108.webp",
+     "sha16": "4a0e50e2e7119de3"
+    },
+    {
+     "prompt": 1,
+     "seed": 101,
+     "file": "img/versions/V6q/p01_s101.webp",
+     "sha16": "13878afdd2e01e30"
+    },
+    {
+     "prompt": 1,
+     "seed": 108,
+     "file": "img/versions/V6q/p01_s108.webp",
+     "sha16": "6610575345b3b599"
+    },
+    {
+     "prompt": 2,
+     "seed": 101,
+     "file": "img/versions/V6q/p02_s101.webp",
+     "sha16": "37440b92b0014c33"
+    },
+    {
+     "prompt": 2,
+     "seed": 108,
+     "file": "img/versions/V6q/p02_s108.webp",
+     "sha16": "6ec71252b8b9f431"
+    },
+    {
+     "prompt": 3,
+     "seed": 101,
+     "file": "img/versions/V6q/p03_s101.webp",
+     "sha16": "8ab5a6e8299d16f3"
+    },
+    {
+     "prompt": 3,
+     "seed": 108,
+     "file": "img/versions/V6q/p03_s108.webp",
+     "sha16": "e5bd2838539057b4"
+    },
+    {
+     "prompt": 4,
+     "seed": 101,
+     "file": "img/versions/V6q/p04_s101.webp",
+     "sha16": "ec80866aa393cfd6"
+    },
+    {
+     "prompt": 4,
+     "seed": 108,
+     "file": "img/versions/V6q/p04_s108.webp",
+     "sha16": "9ff3a41f1335c474"
+    },
+    {
+     "prompt": 5,
+     "seed": 101,
+     "file": "img/versions/V6q/p05_s101.webp",
+     "sha16": "224fc806608f036a"
+    },
+    {
+     "prompt": 5,
+     "seed": 108,
+     "file": "img/versions/V6q/p05_s108.webp",
+     "sha16": "d8b73bb51ce6dbff"
+    },
+    {
+     "prompt": 6,
+     "seed": 101,
+     "file": "img/versions/V6q/p06_s101.webp",
+     "sha16": "5e6cd18b96bdf5b3"
+    },
+    {
+     "prompt": 6,
+     "seed": 108,
+     "file": "img/versions/V6q/p06_s108.webp",
+     "sha16": "0980f30eea3ed76d"
+    },
+    {
+     "prompt": 7,
+     "seed": 101,
+     "file": "img/versions/V6q/p07_s101.webp",
+     "sha16": "47b2acb56aff00cc"
+    },
+    {
+     "prompt": 7,
+     "seed": 108,
+     "file": "img/versions/V6q/p07_s108.webp",
+     "sha16": "6e3269c681336b85"
+    },
+    {
+     "prompt": 8,
+     "seed": 101,
+     "file": "img/versions/V6q/p08_s101.webp",
+     "sha16": "5e9ccf7fd4845a8b"
+    },
+    {
+     "prompt": 8,
+     "seed": 108,
+     "file": "img/versions/V6q/p08_s108.webp",
+     "sha16": "bbee653cdcc05d79"
+    },
+    {
+     "prompt": 9,
+     "seed": 101,
+     "file": "img/versions/V6q/p09_s101.webp",
+     "sha16": "6fd62b61bc9b2681"
+    },
+    {
+     "prompt": 9,
+     "seed": 108,
+     "file": "img/versions/V6q/p09_s108.webp",
+     "sha16": "e4a4fef4759460b9"
+    },
+    {
+     "prompt": 10,
+     "seed": 101,
+     "file": "img/versions/V6q/p10_s101.webp",
+     "sha16": "9c38ca322bdbab41"
+    },
+    {
+     "prompt": 10,
+     "seed": 108,
+     "file": "img/versions/V6q/p10_s108.webp",
+     "sha16": "781af24f2daa8967"
+    },
+    {
+     "prompt": 11,
+     "seed": 101,
+     "file": "img/versions/V6q/p11_s101.webp",
+     "sha16": "099c58e305cc64b4"
+    },
+    {
+     "prompt": 11,
+     "seed": 108,
+     "file": "img/versions/V6q/p11_s108.webp",
+     "sha16": "b58fb5573bba8a24"
+    },
+    {
+     "prompt": 12,
+     "seed": 101,
+     "file": "img/versions/V6q/p12_s101.webp",
+     "sha16": "0b4e181f9bdbd8b8"
+    },
+    {
+     "prompt": 12,
+     "seed": 108,
+     "file": "img/versions/V6q/p12_s108.webp",
+     "sha16": "195b889cbf209072"
+    },
+    {
+     "prompt": 13,
+     "seed": 101,
+     "file": "img/versions/V6q/p13_s101.webp",
+     "sha16": "7748f3d5b584b472"
+    },
+    {
+     "prompt": 13,
+     "seed": 108,
+     "file": "img/versions/V6q/p13_s108.webp",
+     "sha16": "544a6a39451d7077"
+    },
+    {
+     "prompt": 14,
+     "seed": 101,
+     "file": "img/versions/V6q/p14_s101.webp",
+     "sha16": "d037f87371f54238"
+    },
+    {
+     "prompt": 14,
+     "seed": 108,
+     "file": "img/versions/V6q/p14_s108.webp",
+     "sha16": "6038b401444092ce"
+    },
+    {
+     "prompt": 15,
+     "seed": 101,
+     "file": "img/versions/V6q/p15_s101.webp",
+     "sha16": "48bcf88be61aa19c"
+    },
+    {
+     "prompt": 15,
+     "seed": 108,
+     "file": "img/versions/V6q/p15_s108.webp",
+     "sha16": "922aa97fd4a01de5"
+    },
+    {
+     "prompt": 16,
+     "seed": 101,
+     "file": "img/versions/V6q/p16_s101.webp",
+     "sha16": "724e61247f4a3d35"
+    },
+    {
+     "prompt": 16,
+     "seed": 108,
+     "file": "img/versions/V6q/p16_s108.webp",
+     "sha16": "83518560f6c11cd8"
+    },
+    {
+     "prompt": 17,
+     "seed": 101,
+     "file": "img/versions/V6q/p17_s101.webp",
+     "sha16": "23176df16e9d6fda"
+    },
+    {
+     "prompt": 17,
+     "seed": 108,
+     "file": "img/versions/V6q/p17_s108.webp",
+     "sha16": "ea8ff75e9c8a467a"
+    },
+    {
+     "prompt": 18,
+     "seed": 101,
+     "file": "img/versions/V6q/p18_s101.webp",
+     "sha16": "6848aa2923cef892"
+    },
+    {
+     "prompt": 18,
+     "seed": 108,
+     "file": "img/versions/V6q/p18_s108.webp",
+     "sha16": "c311faeedd6e0ed2"
+    },
+    {
+     "prompt": 19,
+     "seed": 101,
+     "file": "img/versions/V6q/p19_s101.webp",
+     "sha16": "d412eb4190936edc"
+    },
+    {
+     "prompt": 19,
+     "seed": 108,
+     "file": "img/versions/V6q/p19_s108.webp",
+     "sha16": "f4a71c6c76e22af9"
+    },
+    {
+     "prompt": 20,
+     "seed": 101,
+     "file": "img/versions/V6q/p20_s101.webp",
+     "sha16": "915128edd45e3392"
+    },
+    {
+     "prompt": 20,
+     "seed": 108,
+     "file": "img/versions/V6q/p20_s108.webp",
+     "sha16": "dbfe41f119968b9d"
+    },
+    {
+     "prompt": 21,
+     "seed": 101,
+     "file": "img/versions/V6q/p21_s101.webp",
+     "sha16": "6b6a6d20bb1ecf97"
+    },
+    {
+     "prompt": 21,
+     "seed": 108,
+     "file": "img/versions/V6q/p21_s108.webp",
+     "sha16": "be203a1b3191f553"
+    },
+    {
+     "prompt": 22,
+     "seed": 101,
+     "file": "img/versions/V6q/p22_s101.webp",
+     "sha16": "98bb05a19f176578"
+    },
+    {
+     "prompt": 22,
+     "seed": 108,
+     "file": "img/versions/V6q/p22_s108.webp",
+     "sha16": "aa2af5450e2d93a0"
+    },
+    {
+     "prompt": 23,
+     "seed": 101,
+     "file": "img/versions/V6q/p23_s101.webp",
+     "sha16": "7775cabc0cbbb8a3"
+    },
+    {
+     "prompt": 23,
+     "seed": 108,
+     "file": "img/versions/V6q/p23_s108.webp",
+     "sha16": "2ddda18c11670687"
+    }
+   ],
+   "kid": 0.000396,
+   "kid_std": 3.6e-05,
+   "clip_fid": 0.4722,
+   "clip_score": 0.2719,
+   "sharpness": 742.11,
+   "text_encoder": "base",
+   "val_mse": null,
+   "val_std": null,
+   "val_samples": 0,
+   "val_comparable": false,
+   "val_note": "该候选的 conditioning 与其它候选不同，val 不可比（未纳入同一协议）"
+  }
+ ],
+ "ranking_kid": [
+  "V4",
+  "V5b",
+  "V6q",
+  "V5"
+ ],
+ "val_table": [
+  {
+   "id": "V5b",
+   "path": "models/v5b_lora/adapter_best",
+   "val_mse": 0.185834,
+   "val_std": 0.189808,
+   "samples": 144,
+   "in_gallery": true
+  },
+  {
+   "id": "V5",
+   "path": "models/v5_lora/adapter_best",
+   "val_mse": 0.185891,
+   "val_std": 0.189826,
+   "samples": 144,
+   "in_gallery": true
+  },
+  {
+   "id": "slerp",
+   "path": "models/merged/slerp_0.50_0.50",
+   "val_mse": 0.185901,
+   "val_std": 0.189957,
+   "samples": 144,
+   "in_gallery": false
+  },
+  {
+   "id": "v4v5b_slerp",
+   "path": "models/merged_v4v5b/slerp_0.50_0.50",
+   "val_mse": 0.185939,
+   "val_std": 0.189987,
+   "samples": 144,
+   "in_gallery": false
+  },
+  {
+   "id": "v4v5b_linear",
+   "path": "models/merged_v4v5b/linear_0.50_0.50",
+   "val_mse": 0.185963,
+   "val_std": 0.189948,
+   "samples": 144,
+   "in_gallery": false
+  },
+  {
+   "id": "linear",
+   "path": "models/merged/linear_0.50_0.50",
+   "val_mse": 0.185969,
+   "val_std": 0.189946,
+   "samples": 144,
+   "in_gallery": false
+  },
+  {
+   "id": "ties",
+   "path": "models/merged/ties_0.50_0.50",
+   "val_mse": 0.186027,
+   "val_std": 0.189977,
+   "samples": 144,
+   "in_gallery": false
+  },
+  {
+   "id": "dare_ties",
+   "path": "models/merged/dare_ties_0.50_0.50",
+   "val_mse": 0.186041,
+   "val_std": 0.190016,
+   "samples": 144,
+   "in_gallery": false
+  },
+  {
+   "id": "V4",
+   "path": "models/v4_640/adapter_best",
+   "val_mse": 0.186437,
+   "val_std": 0.190435,
+   "samples": 144,
+   "in_gallery": true
+  },
+  {
+   "id": "BASE",
+   "path": "(base)",
+   "val_mse": 0.191528,
+   "val_std": 0.192491,
+   "samples": 144,
+   "in_gallery": false
+  }
+ ],
+ "judge": {
+  "model": "Qwen/Qwen2-VL-2B-Instruct",
+  "swap_seed": 20240913,
+  "pairs": [
+   {
+    "pair": "V4 vs V5b",
+    "left": "V4",
+    "right": "V5b",
+    "decided": 48,
+    "wins_left": 30,
+    "wins_right": 18,
+    "ties": 0,
+    "unparsed": 0,
+    "rate_left": 0.625,
+    "ci": [
+     0.4836,
+     0.7478
+    ],
+    "indistinguishable": true,
+    "presented_a_wins": 48,
+    "total": 48
+   },
+   {
+    "pair": "V4 vs V6",
+    "left": "V4",
+    "right": "V6",
+    "decided": 48,
+    "wins_left": 23,
+    "wins_right": 25,
+    "ties": 0,
+    "unparsed": 0,
+    "rate_left": 0.4792,
+    "ci": [
+     0.3447,
+     0.6167
+    ],
+    "indistinguishable": true,
+    "presented_a_wins": 48,
+    "total": 48
+   },
+   {
+    "pair": "V5b vs V6",
+    "left": "V5b",
+    "right": "V6",
+    "decided": 48,
+    "wins_left": 22,
+    "wins_right": 26,
+    "ties": 0,
+    "unparsed": 0,
+    "rate_left": 0.4583,
+    "ci": [
+     0.3258,
+     0.5971
+    ],
+    "indistinguishable": true,
+    "presented_a_wins": 48,
+    "total": 48
+   }
+  ],
+  "valid": false,
+  "position_bias": {
+   "presented_a_wins": 144,
+   "total": 144,
+   "fraction": 1.0
+  },
+  "invalid_reason": "裁判模型 144/144 次都选了『先出现的那张』（A 位）。交换左右后按真实身份还原的胜率恰好等于『未交换行的占比』（30/48、23/48、22/48），即结果完全由随机交换排程决定，**不携带任何质量信息**。该判据记为无效，而不是『接近打平』。"
+ },
+ "sr": {
+  "columns": [
+   {
+    "key": "hr",
+    "label": "HR（参考）"
+   },
+   {
+    "key": "bicubic",
+    "label": "bicubic"
+   },
+   {
+    "key": "realesrgan",
+    "label": "RealESRGAN"
+   },
+   {
+    "key": "ultrasharp",
+    "label": "UltraSharp"
+   },
+   {
+    "key": "ours_ema",
+    "label": "Ours-EMA"
+   },
+   {
+    "key": "ours_final",
+    "label": "Ours-final"
+   }
+  ],
+  "rows": 8,
+  "metrics": {
+   "source": "docs/TRAINING.md §10.1（tools/probe_sr_model.py 实测，research/sr_probe_final/）",
+   "kind": "documented",
+   "baseline": "bicubic",
+   "rows": [
+    {
+     "key": "ours_ema",
+     "label": "Ours-EMA",
+     "detail_ratio": 6.53,
+     "psnr_delta_db": -1.45
+    },
+    {
+     "key": "ours_final",
+     "label": "Ours-final",
+     "detail_ratio": 8.69,
+     "psnr_delta_db": -1.56
+    },
+    {
+     "key": "realesrgan",
+     "label": "RealESRGAN",
+     "detail_ratio": 7.09,
+     "psnr_delta_db": -1.81
+    },
+    {
+     "key": "ultrasharp",
+     "label": "UltraSharp",
+     "detail_ratio": 8.03,
+     "psnr_delta_db": -1.29
+    }
+   ]
+  }
+ },
+ "conclusion": {
+  "headline": "没有任何微调版本在有效判据上超过 V4",
+  "points": [
+   "固定协议 val：V5b 0.185834 < V5 0.185891 < 线性融合 0.185969 < V4 0.186437（差 ~0.3%），但该指标与训练目标同源、不是画质指标。",
+   "留出集 KID：V4 0.000359（最低）< V5b 0.000377 < V6q 0.000396 < V5 0.000404，σ=3.5e-05 ⇒ 差异在噪声内。",
+   "CLIP 一致性：V5 0.2726 ≈ V5b 0.2720 ≈ V6q 0.2719 ≈ V4 0.2716（测『听话』，不测『好看』）。",
+   "自研盲测裁判：**判据无效**（见 judge.invalid_reason），不能作为任何一方的证据。",
+   "唯一被客观证据支持的质量提升来自**自训超分 GAN**（细节量 6.5–8.7× vs bicubic，与 RealESRGAN/UltraSharp 同档），现已作为三个入口的默认超分模型。"
+  ],
+  "ask": "机器判据已用尽（且其中一条被证伪），因此把你自己的判断作为最后一条判据——建议先用盲测模式，不要提前知道哪张是 V4。"
+ }
+}

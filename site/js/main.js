@@ -865,6 +865,8 @@ function bindPalette() {
     { id: 'stats', label: '📊 跳到运行统计', hint: '成功率 / 平均耗时 / 缓存命中', group: '面板', run: () => scrollTo('statGrid') },
     { id: 'library', label: '📚 跳到词库与检索', hint: 'Prompt 词库 / 历史搜索', group: '面板', run: () => scrollTo('libList') },
     { id: 'health', label: '❤ 跳到运行状态', hint: '显存 / 队列 / 日志', group: '面板', run: () => scrollTo('healthGrid') },
+    { id: 'versions', label: '🔬 打开版本评判台', hint: 'V4/V5/V5b/V6q 同 prompt 同 seed + 盲测',
+      group: '面板', run: () => { location.href = '/versions.html'; } },
 
     { id: 'warm', label: '🔥 预热管线', hint: '消除首图冷启动', group: '维护', run: () => click('warmBtn') },
     { id: 'gc', label: '♻ 触发回收', hint: '清理显存与过期结果', group: '维护', run: () => click('gcBtn') },

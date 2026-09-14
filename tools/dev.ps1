@@ -86,6 +86,14 @@ switch ($Task) {
     & $Python tools\test_spring_easing.py
     if ($LASTEXITCODE -eq 0) { Ok 'spring easing' } else { $fail++ }
 
+    Say '版本评级台语料（格子完整 / 数字可复算 / 判据无效标记）'
+    & $Python tools\test_version_gallery.py
+    if ($LASTEXITCODE -eq 0) { Ok 'version gallery' } else { $fail++ }
+
+    Say '版本评判台前端（jsdom，缺依赖自动 SKIP）'
+    node tools\smoke_versions.mjs
+    if ($LASTEXITCODE -eq 0) { Ok 'versions page' } else { $fail++ }
+
     Say '路径与敏感串'
     & $Python tools\check_paths.py
     if ($LASTEXITCODE -eq 0) { Ok 'paths' } else { $fail++ }
